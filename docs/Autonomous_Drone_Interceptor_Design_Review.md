@@ -14,11 +14,13 @@ The rapid proliferation of Unmanned Aerial Vehicles (UAVs) has necessitated the 
 To ensure a reliable and physically viable interception system, the project operates under strict functional and technical parameters.
 
 ### Functional Requirements
+
 * **Target Detection & Tracking:** Continuous, real-time estimation of the relative position, range, and Line-of-Sight (LOS) rate of dynamic target UAVs.
 * **Autonomous Interception:** Computation of real-time guidance commands to ensure a reliable collision trajectory or neutralization.
 * **Autonomous Flight Control:** Automatic translation of required acceleration vectors into specific motor speeds, maintaining quadcopter stability even during highly aggressive maneuvers.
 
 ### Technical Constraints
+
 * **Actuator Saturation:** Motor RPM (Revolutions Per Minute) limits dictate that thrust vectoring must remain within the quadcopter's physical motor boundaries to prevent stalls or loss of control.
 * **Sensor Noise & Latency:** Real-world sensors (Radar/LiDAR/Cameras) suffer from inherent delays and high-frequency noise. This raw data must be aggressively filtered before it can be fed into the guidance loops.
 
@@ -26,9 +28,10 @@ To ensure a reliable and physically viable interception system, the project oper
 
 ## 3. Simulation Environment: MuJoCo
 
-The project leverages **MuJoCo (Multi-Joint dynamics with Contact)**, a highly accurate physics engine widely used in robotics and autonomous systems research. 
+The project leverages **MuJoCo (Multi-Joint dynamics with Contact)**, a highly accurate physics engine widely used in robotics and autonomous systems research.
 
 **Environment Pipeline:**
+
 1. **The Physics Engine (Constraint Solver):** Models continuous rigid body dynamics, fluid dynamics, and calculates energy conservation, stability, and integration.
 2. **Active Space Modeling:** Defines the active 3D space, computing relative kinematics and look-angles between the interceptor and the target.
 3. **Continuous Feedback Loop:** Models physical dynamics and aerodynamic forces, constantly looping sensor data back into the environment.
@@ -40,6 +43,7 @@ The project leverages **MuJoCo (Multi-Joint dynamics with Contact)**, a highly a
 The project evaluated two distinctly different approaches to mapping sensor data to motor commands: **Classical Hierarchical Architecture** and **Deep Reinforcement Learning**.
 
 ### Architecture A: Classical Hierarchical Architecture (Selected)
+
 This approach breaks the interception problem into distinct, specialized, and mathematically explainable layers.
 
 * **Target Estimation:** Uses an Extended Kalman Filter (EKF) or Moving Horizon Estimation (MHE) to process noisy sensor data.
@@ -48,10 +52,13 @@ This approach breaks the interception problem into distinct, specialized, and ma
 * **Actuators:** Motor Mixers convert physical limits into RPMs for the 4 rotors.
 
 ### Architecture B: Deep Reinforcement Learning (DRL)
+
 This approach bypasses traditional control theory, feeding state information (interceptor orientation, relative target vectors) directly into a Deep Neural Network (trained via PPO or SAC) which outputs low-level actuator commands directly.
 
 ### The Verdict: Why Classical over Reinforcement Learning?
+
 While DRL has the potential to discover "super-maneuverable" flight profiles, the **Classical Hierarchical Architecture was chosen** for its deterministic reliability:
+
 * **Deterministic Efficiency:** Calculus-driven frameworks guarantee the smoothest path, minimizing motor strain and battery usage.
 * **Valid Physics:** Ensures repeatable performance within established laws of motion.
 * *DRL Drawbacks:* RL agents often exploit simulation quirks, attempting physically impossible maneuvers that would cause real-world motor stalls. Furthermore, "black box" RL policies are highly sensitive to sensor noise, often resulting in erratic "twitching."
@@ -78,15 +85,18 @@ The winning architecture operates through a 6-stage cyclic pipeline:
 The core "brain" of the interception logic lies in the Guidance Algorithm. Three algorithms were evaluated:
 
 ### 1. Proportional Navigation (PN)
+
 * **Concept:** A classical algorithm that aims ahead of the target to create a "collision triangle," commanding an acceleration perpendicular to the instantaneous Line-of-Sight (LOS) rate.
 * **Limitations:** Assumes instantaneous turns and struggles with maneuvering targets.
 * **Adaptation:** Partitioned into three 2D sub-problems (Sxy, Sxz, Syz) for 3D drone flight.
 
 ### 2. Augmented Proportional Navigation (APN)
+
 * **Concept:** Builds upon PN by adding a feed-forward term to the "Zero Effort Miss" calculation, explicitly accounting for the target's evasive acceleration.
 * **Limitations:** If the target maintains a constant cruising velocity (acceleration = 0), APN behaves identically to standard PN. It suffers from severe Z-axis (altitude) overshooting and fails when targets exceed 55-60 km/h.
 
 ### 3. Optimal Guidance Law (OGL) — The Winner
+
 * **Concept:** Modeled as a **Linear Quadratic (LQ) optimization problem**. It explicitly anticipates the quadcopter's mechanical tilt delay (using a first-order lag transfer function $1/(Ts+1)$), rather than assuming the drone can turn instantly.
 * **Mathematical Advantages:**
   * Minimizes both miss distance and control effort ($J = y(t_f)^2 + \int u(t)^2 dt$), saving battery and preventing violent maneuvers.
@@ -102,6 +112,7 @@ The core "brain" of the interception logic lies in the Guidance Algorithm. Three
 To rigorously validate the interceptor, simulations cover a broad spectrum of real-world variables:
 
 ### Scenarios
+
 * **Static Targets:** Baseline validation of algorithms and stability.
 * **Linear Moving Targets:** Testing constant-velocity tracking and closing speeds.
 * **Sinusoidal Trajectories:** Evasive maneuvers to stress-test the EKF tracking and OGL responsiveness.
@@ -109,10 +120,11 @@ To rigorously validate the interceptor, simulations cover a broad spectrum of re
 * **Wind & Gusts:** Introducing environmental disturbances to test control loop robustness.
 
 ### Key Performance Indicators (KPIs) & Success Criteria
+
 | Metric | Description | Success Target (5% Margin) |
 | :--- | :--- | :--- |
 | **Miss Distance ($R_{miss}$)** | Proximity required for successful neutralization/blast radius. | $\le 1.05$ Meters |
-| **Time-to-Intercept ($t_{int}$)** | Time efficiency of the OGL trajectory. | Static: $< 10$s <br> Moving: $< 20$s |
+| **Time-to-Intercept ($t_{int}$)** | Time efficiency of the OGL trajectory. | Static: $< 10$s Moving: $< 20$s |
 | **Z-Axis Overshooting** | Altitude leveling precision. | Max $0.5m$ above target |
 | **Command Saturation** | Ratio of time the drone is pushed to physical limits. | $\le 5\%$ of Total Flight Time |
 | **Max Target Speed** | Maximum evasive threat speed successfully intercepted. | $\ge 83.6$ km/h |
