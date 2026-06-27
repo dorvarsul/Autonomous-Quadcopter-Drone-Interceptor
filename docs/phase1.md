@@ -150,6 +150,33 @@
 - [ ] Wind reproducibility test.
 - [ ] **DoD:** all Phase 1 unit tests pass headlessly and deterministically.
 
+### T1.10 — Interactive replay viewer (opt-in, off the automated path)
+**Role:** 1 · **Depends on:** T1.1, T1.7
+
+> **Intent:** a developer/demo tool to *watch* a logged interception in a live MuJoCo
+> window. It is a **consumer of a deterministic artifact**, never part of the sim or
+> control loop, so it cannot affect physics, estimation, guidance, control, or results.
+> This is the only sanctioned interactive window in the project and it must remain
+> strictly opt-in — never invoked by tests, batch trials, or CI.
+
+- [ ] Extend the run-log schema to record **full poses** needed to replay faithfully:
+      interceptor *and* target **position and orientation quaternion** per step (the
+      current log carries only interceptor position). Treat the log schema as the
+      shared contract it is — add columns, do not repurpose existing ones.
+- [ ] Implement `scripts/replay.py`: load `models/scene.xml` + a `results/<run_id>/`
+      run log, set body poses from each logged step, and play back in an interactive
+      `mujoco.viewer` window with pause and time-scrub. Real-time pacing here affects
+      *only the playback clock*, never a physics step.
+- [ ] The viewer reads logged state only — it must **not** re-run the sim, re-step
+      physics, or read ground truth live. Replaying the same log twice looks identical.
+- [ ] Provide a **non-interactive smoke test**: construct the replay session, load a
+      short canned log, and advance one frame **without blocking** (headless/off-screen,
+      so CI never opens a window). The interactive window itself is exercised manually.
+- [ ] **DoD:** `python scripts/replay.py results/<run_id>` opens a live window playing
+      back the logged interception; the automated test suite stays fully headless and
+      deterministic, and disabling/never-launching the viewer changes nothing in any
+      run log.
+
 ---
 
 ## Deliverables
@@ -157,6 +184,8 @@
 - `models/quadcopter.xml`, `models/target.xml`, `models/scene.xml`.
 - `simulation/` package: world, motor/actuator model, `trajectories/`, `sensors/`,
   wind model, off-screen `Renderer`.
+- `scripts/replay.py` — opt-in interactive replay viewer (consumes logged runs only).
+- Pose-augmented run-log schema (interceptor + target position & orientation).
 - Phase 1 unit-test suite.
 
 ## KPIs Touched (enabling, not yet measured)
@@ -171,7 +200,11 @@
   work; justify timestep.
 - **Sensor model too clean** → noise/latency are intentional and mandatory; T1.5 DoD
   verifies residual statistics; do not sanitize signals for downstream convenience.
-- **Hidden render window** → T1.7 enforces off-screen only.
+- **Hidden render window** → T1.7 enforces off-screen only; the T1.10 replay viewer is
+  the sole sanctioned interactive window and is opt-in, replay-only, and never on the
+  test/batch/CI path.
+- **Live viewer contaminating determinism** → T1.10 forbids attaching a viewer to the
+  running loop; it replays logged poses only, so playback can never alter a result.
 
 ## Boundaries (do not cross)
 
