@@ -34,7 +34,7 @@ where = ["src"]
 # Headless, non-interactive test runs only (no GLFW window). Tests live under tests/.
 testpaths = ["tests"]
 addopts = "-q"
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 markers = [
     "mujoco: test requires the MuJoCo binding and an off-screen GL context",
 ]

@@ -1,0 +1,52 @@
+<!--
+  Interceptor quadcopter (Role 1, Phase 1 - T1.1).
+
+  A model *fragment*: it defines only the interceptor body so it can be <include>d into
+  scene.xml (which owns <option>/<compiler>/floor/light). It still loads standalone for
+  quick model checks (MuJoCo supplies default options).
+
+  Geometry is a "+" configuration matching MotorCommand's rotor order
+  [front(+X), right(-Y), back(-X), left(+Y)] (see common/types.py) and the physical
+  constants in config/constants.py:
+      mass        = QUAD_MASS_KG            = 1.0  kg
+      diaginertia = IXX, IYY, IZZ           = 0.01, 0.01, 0.02  kg*m^2
+      arm length  = ARM_LENGTH_M            = 0.15 m
+  Keep these in sync with constants.py (the plant asserts mass/inertia on load).
+-->
+<mujoco model="quadcopter">
+  <default>
+    <default class="rotor_site">
+      <site type="cylinder" size="0.05 0.004" rgba="0.9 0.2 0.2 0.6"/>
+    </default>
+    <default class="arm">
+      <geom type="capsule" size="0.006" rgba="0.12 0.12 0.12 1" mass="0"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="interceptor" pos="0 0 2">
+      <freejoint name="interceptor_root"/>
+      <!-- Explicit inertial: mass/inertia come from constants.py, not geom defaults. -->
+      <inertial pos="0 0 0" mass="1.0" diaginertia="0.01 0.01 0.02"/>
+
+      <geom name="interceptor_core" type="box" size="0.06 0.06 0.015"
+            rgba="0.15 0.30 0.75 1" mass="0"/>
+
+      <!-- Arms out to each rotor (visual only; mass is in the inertial element). -->
+      <geom name="arm_front" class="arm" fromto="0 0 0  0.15 0 0"/>
+      <geom name="arm_right" class="arm" fromto="0 0 0  0 -0.15 0"/>
+      <geom name="arm_back"  class="arm" fromto="0 0 0 -0.15 0 0"/>
+      <geom name="arm_left"  class="arm" fromto="0 0 0  0 0.15 0"/>
+
+      <!-- Rotor thrust application points, in MotorCommand order. -->
+      <site name="rotor0_front" class="rotor_site" pos=" 0.15  0.00 0.02"/>
+      <site name="rotor1_right" class="rotor_site" pos=" 0.00 -0.15 0.02"/>
+      <site name="rotor2_back"  class="rotor_site" pos="-0.15  0.00 0.02"/>
+      <site name="rotor3_left"  class="rotor_site" pos=" 0.00  0.15 0.02"/>
+
+      <!-- Heading marker so attitude is visible in the replay viewer. -->
+      <site name="interceptor_nose" type="box" size="0.08 0.008 0.008" pos="0.07 0 0.02"
+            rgba="0.95 0.95 0.2 1"/>
+    </body>
+  </worldbody>
+</mujoco>

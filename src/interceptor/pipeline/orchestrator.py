@@ -62,12 +62,22 @@ from interceptor.simulation.stubs import (
 )
 
 # Columns of the per-step run log. Fixed order => deterministic CSV.
+# The pose columns (interceptor quaternion + target position) make a run replayable in
+# an interactive viewer (Phase 1 T1.10) without re-running the sim. They are additive:
+# downstream analysis keys by column name, so appending columns is safe.
 LOG_FIELDS = (
     "step_index",
     "sim_time_s",
     "interceptor_x_m",
     "interceptor_y_m",
     "interceptor_z_m",
+    "interceptor_qw",
+    "interceptor_qx",
+    "interceptor_qy",
+    "interceptor_qz",
+    "target_x_m",
+    "target_y_m",
+    "target_z_m",
     "estimate_range_m",
     "accel_cmd_norm_m_s2",
     "saturated",
@@ -76,6 +86,10 @@ LOG_FIELDS = (
     "rotor_rpm_2",
     "rotor_rpm_3",
 )
+
+# Identity orientation used when a plant does not expose an attitude (e.g. the Phase 0
+# stub plant): body frame aligned with world.
+_IDENTITY_QUAT = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -207,12 +221,24 @@ class StubOrchestrator:
                     commanded = c.inner_loop.track(desired_attitude, c.plant.body_rates_rad_s)
                     motor_command = c.mixer.mix(commanded)
 
+                # Body attitude for pose logging/replay; stubs without an attitude
+                # report identity (body aligned with world).
+                interceptor_quat = getattr(c.plant, "orientation_quat", _IDENTITY_QUAT)
+
                 # --- Simulation step (actuators back into the world) -----------------
                 c.plant.step(motor_command, dt)
                 c.renderer.render(tick.sim_time_s)
 
                 logger.log_step(
-                    self._log_row(tick, interceptor_pos, estimate, limited, motor_command)
+                    self._log_row(
+                        tick,
+                        interceptor_pos,
+                        interceptor_quat,
+                        target_pos,
+                        estimate,
+                        limited,
+                        motor_command,
+                    )
                 )
 
         return RunResult(
@@ -227,6 +253,8 @@ class StubOrchestrator:
     def _log_row(
         tick,
         interceptor_pos: np.ndarray,
+        interceptor_quat: np.ndarray,
+        target_pos: np.ndarray,
         estimate: TargetStateEstimate | None,
         limited: LimitedAccelerationCommand | None,
         motor_command: MotorCommand,
@@ -235,12 +263,20 @@ class StubOrchestrator:
         accel_norm = (
             float(np.linalg.norm(limited.acceleration_m_s2)) if limited is not None else 0.0
         )
+        quat = np.asarray(interceptor_quat, dtype=np.float64)
         return {
             "step_index": tick.step_index,
             "sim_time_s": tick.sim_time_s,
             "interceptor_x_m": float(interceptor_pos[frames.X]),
             "interceptor_y_m": float(interceptor_pos[frames.Y]),
             "interceptor_z_m": float(interceptor_pos[frames.Z]),
+            "interceptor_qw": float(quat[0]),
+            "interceptor_qx": float(quat[1]),
+            "interceptor_qy": float(quat[2]),
+            "interceptor_qz": float(quat[3]),
+            "target_x_m": float(target_pos[frames.X]),
+            "target_y_m": float(target_pos[frames.Y]),
+            "target_z_m": float(target_pos[frames.Z]),
             "estimate_range_m": float(estimate.range_m) if estimate is not None else 0.0,
             "accel_cmd_norm_m_s2": accel_norm,
             "saturated": bool(limited.saturated) if limited is not None else False,
