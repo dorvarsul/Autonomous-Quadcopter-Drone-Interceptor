@@ -128,7 +128,7 @@ builds structure, contracts, constants, and infrastructure only.
   - `Estimator` (Role 2) — consumes `RawSensorMeasurement`, returns
     `TargetStateEstimate`.
   - `GuidanceLaw` (Role 3) — consumes `TargetStateEstimate`, returns
-    `AccelerationCommand`. PN/APN/OGL must all satisfy this (Liskov).
+    `AccelerationCommand`. Any guidance law (OGL) must satisfy this (Liskov).
   - `CommandLimiter`, `FlightController` (outer + inner), `MotorMixer` (Role 4).
 - [ ] Keep interfaces minimal — e.g., Control depends only on "give me an acceleration
       command," not on guidance internals (Interface Segregation).

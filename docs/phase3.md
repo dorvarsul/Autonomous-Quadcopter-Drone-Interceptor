@@ -6,8 +6,8 @@
 > **Pipeline stages touched:** All (measured end-to-end); no new stages added.
 > **Goal:** Build the KPI-measurement and scenario-running tooling, then bring the
 > system from "functioning" (Phase 2) to "meets spec on static and linear targets."
-> Establish the PN vs APN vs OGL benchmark on identical seeded scenarios. Lock passing
-> results as regression tests.
+> Characterize OGL quantitatively (including the `b`-penalty ablation) against the KPI
+> targets on identical seeded scenarios. Lock passing results as regression tests.
 
 > **Role-5 boundary:** Role 5 measures and **files findings**; it does **not** edit
 > estimation/guidance/control logic to force a pass. Tuning is performed by the owning
@@ -17,7 +17,7 @@
 
 ## Entry Criteria
 
-- Phase 2 complete: full pipeline wired; OGL default with PN/APN swappable; static
+- Phase 2 complete: full pipeline wired; OGL is the sole guidance law; static
   interception works headless and deterministically.
 
 ## Exit Criteria (Definition of Done for the phase)
@@ -29,8 +29,8 @@
       `saturation ≤ 5%` with OGL.
 - [ ] **Linear** trials meet: `R_miss ≤ 1.05 m`, `t_int < 20 s`, `Z-overshoot ≤ 0.5 m`,
       `saturation ≤ 5%` with OGL.
-- [ ] OGL's advantage over PN/APN is documented quantitatively on identical seeds
-      (interception time, overshoot, effort).
+- [ ] OGL's behavior is documented quantitatively on identical seeds (interception time,
+      overshoot, effort), including the `b = 0.1` vs `b = 0` ablation on Z-overshoot.
 - [ ] Passing scenarios are captured as reproducible regression tests.
 
 ---
@@ -96,8 +96,9 @@
 
 - [ ] Tune the time-varying `N'` schedule, the altitude penalty `b`, and the tilt
       time-constant `T` used in the OGL lag model.
-- [ ] Verify the qualitative claims from the Design Review: OGL reaches the target far
-      faster than PN/APN (target ≈ 12×) with no Z-axis overshoot.
+- [ ] Verify the qualitative claims from the Design Review: OGL reaches the target
+      quickly (the Design Review cites ≈ 12× faster than the rejected PN/APN baselines)
+      with no Z-axis overshoot.
 - [ ] **DoD:** OGL tuning documented; KPI improvements attributable to specific changes.
 
 > Any change to KPI-affecting tuning constants is confirmed with the user before being
@@ -112,16 +113,16 @@
 - [ ] **DoD:** stable aggressive maneuvers; saturation KPI within target on static/linear
       scenarios.
 
-### T3.8 — PN vs APN vs OGL comparative benchmark
+### T3.8 — OGL characterization & `b`-penalty ablation
 **Role:** 5 · **Depends on:** T3.3–T3.7
 
-- [ ] Run all three guidance laws on **identical seeded scenarios** (swap via config
-      only — validating the Liskov contract).
-- [ ] Tabulate KPIs side-by-side; generate plots (trajectories, altitude vs time,
-      command effort, miss distance) to `results/`.
-- [ ] Report faithfully, including where PN/APN behave identically (zero target accel)
-      and where they overshoot or lag.
-- [ ] **DoD:** a reproducible benchmark report quantifies OGL's advantage.
+- [ ] Run OGL on a spread of **identical seeded scenarios**, and repeat with the altitude
+      penalty disabled (`b = 0`) to isolate its effect on Z-overshoot.
+- [ ] Tabulate KPIs; generate plots (trajectories, altitude vs time, command effort, miss
+      distance) to `results/`.
+- [ ] Report faithfully; contextualize against the Design Review's cited PN/APN numbers
+      (documentary reference only — PN/APN are not implemented).
+- [ ] **DoD:** a reproducible report quantifies OGL performance and the `b`-penalty effect.
 
 ### T3.9 — Regression test suite
 **Role:** 5 · **Depends on:** T3.3, T3.4
@@ -137,7 +138,7 @@
 
 - `analysis/{kpis,scenarios,reporting}.py`; scenario YAMLs under `scenarios/`.
 - Tuned `config/params.py` (EKF `Q`/`R`, PID gains, `N'`, `b`, `T`) with rationale.
-- PN/APN/OGL comparative report + plots in `results/`.
+- OGL characterization + `b`-ablation report + plots in `results/`.
 - Static/linear regression tests.
 
 ## KPIs Targeted This Phase
@@ -166,6 +167,7 @@
 
 ## References
 
-- Design Review §6 (algorithm comparison), §7 (scenarios + KPIs), §8 Phase 3.
+- Design Review §6 (algorithm comparison — OGL selected; PN/APN rejected), §7
+  (scenarios + KPIs), §8 Phase 3.
 - Thesis summary Ch. 5 (OGL outperforms; ~12× faster; no overshoot).
 - AGENTS.md → Role 5, KPI table, Testing, Workflow.

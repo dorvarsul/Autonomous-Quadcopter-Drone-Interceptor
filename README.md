@@ -14,8 +14,9 @@ See [`AGENTS.md`](./AGENTS.md) for the full engineering contract and
 Simulation ──(raw noisy/delayed sensor data)──► Estimation
 Estimation ──(clean target pos, range, LOS rate)──► Guidance
 Guidance   ──(required acceleration vector)──► Command Limiter
-Cmd Limiter──(clamped, physically-safe accel)──► Flight Control (outer→inner)
-Flight Ctrl──(roll/pitch/yaw/thrust)──► Motor Mixer
+Cmd Limiter──(clamped, physically-safe accel)──► Flight Control (outer)
+Outer loop ──(target roll/pitch/yaw + thrust)──► Flight Control (inner)
+Inner loop ──(body torque + thrust)──► Motor Mixer
 Motor Mixer──(4× rotor RPM)──► Simulation (actuators)
 ```
 
@@ -30,7 +31,7 @@ src/interceptor/
   common/      # types (data contracts), frames, rng, logging, guards
   simulation/  # Role 1 — sensors, trajectories, renderer, plant (interfaces + stubs)
   estimation/  # Role 2 — Estimator interface (EKF in Phase 2)
-  guidance/    # Role 3 — GuidanceLaw interface; PN/APN/OGL (Phase 2)
+  guidance/    # Role 3 — GuidanceLaw interface; OGL (Phase 2)
   control/     # Role 4 — command limiter, dual-loop control, motor mixer
   pipeline/    # Role 6 — multi-rate scheduler + orchestrator
   analysis/    # Role 5 — KPIs, scenarios, reporting (Phase 3+)
@@ -72,6 +73,23 @@ python scripts/run_stub_pipeline.py --steps 400 --seed 0
 
 Runs the full 6-stage loop on pass-through stubs, headless and deterministically, and
 writes a per-step run log + reproducibility snapshot to `results/<run_id>/`.
+
+## Run the guided interception (Phase 2)
+
+```powershell
+python scripts/run_intercept.py --target 8 3 6 --seconds 9
+python scripts/replay.py results/intercept        # optional 3D replay of the run
+```
+
+Runs the full pipeline with the **real** components — MuJoCo plant, noisy/delayed sensor,
+**EKF** estimation, **OGL** guidance (the sole guidance law), command limiter, dual-loop
+(50 Hz / 400 Hz) control, and motor mixer — closing on a static target. It prints the
+achieved miss distance and writes a replayable run to `results/<run_id>/`. Headless and
+deterministic: same seed + config ⇒ byte-identical log.
+
+> Phase 2 is *"correct, wired, and functioning"* — the loop intercepts static targets to
+> well within the 1.05 m KPI. Formal KPI tuning (saturation ≤ 5%, moving/evasive targets)
+> is Phase 3–4.
 
 ## Run the tests (headless, non-interactive)
 

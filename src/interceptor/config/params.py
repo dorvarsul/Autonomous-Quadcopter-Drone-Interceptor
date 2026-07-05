@@ -27,14 +27,29 @@ from interceptor.config import constants
 
 @dataclass(frozen=True)
 class EkfParams:
-    """Extended Kalman Filter tuning (Role 2). Placeholders until Phase 2."""
+    """Extended Kalman Filter tuning (Role 2).
 
-    # Process-noise covariance diagonal [units vary per state element].
-    process_noise_diag: tuple[float, ...] = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
-    # Measurement-noise covariance diagonal [range m^2, angle rad^2 ...].
-    measurement_noise_diag: tuple[float, ...] = (0.1, 0.01, 0.01)
-    # Initial state covariance scale [dimensionless multiplier].
+    The EKF tracks a 9-state relative target model ``[pos(3), vel(3), acc(3)]`` in the
+    world frame with a constant-acceleration process (acceleration is a random walk).
+    Defaults are conservative starting points; Role 2 tunes them in Phase 3 against the
+    Phase 1 noise/latency profiles.
+    """
+
+    # Process-noise spectral densities per state group (constant-acceleration model with
+    # an acceleration random walk). Larger => the filter adapts faster but trusts noisy
+    # measurements more. Units chosen so ``q * dt`` has the state group's variance units.
+    process_noise_position: float = 1.0e-3  # [m^2/s] on relative position
+    process_noise_velocity: float = 1.0  # [m^2/s^3] on relative velocity
+    process_noise_acceleration: float = 5.0  # [m^2/s^5] jerk PSD on relative acceleration
+    # Measurement-noise variances; default to the Phase 1 sensor 1-sigma values squared
+    # (range 0.30 m -> 0.09 m^2; angle 0.0035 rad -> ~1.2e-5 rad^2).
+    measurement_noise_range_m2: float = 0.09
+    measurement_noise_angle_rad2: float = 1.225e-5
+    # Initial state covariance scale [dimensionless multiplier on the unit prior].
     initial_covariance_scale: float = 10.0
+    # Innovation/covariance divergence guard: if the covariance trace exceeds this, the
+    # filter has diverged and must fail loud rather than emit garbage (AGENTS.md).
+    divergence_covariance_trace_max: float = 1.0e9
 
 
 @dataclass(frozen=True)
@@ -48,25 +63,54 @@ class PidGains:
 
 @dataclass(frozen=True)
 class ControlParams:
-    """Dual-loop flight-control tuning (Role 4). Placeholders until Phase 2."""
+    """Dual-loop flight-control tuning (Role 4).
 
-    # Inner loop (~400 Hz) rate PIDs, one per body axis.
-    inner_roll: PidGains = field(default_factory=PidGains)
-    inner_pitch: PidGains = field(default_factory=PidGains)
-    inner_yaw: PidGains = field(default_factory=PidGains)
-    # Outer loop (~50 Hz) attitude-reference PIDs.
+    Inner-loop gains are attitude-PD constants: desired angular acceleration =
+    ``kp * attitude_error - kd * body_rate`` (torque = inertia * that). Roll/pitch use a
+    critically-damped-ish response with natural frequency ~17 rad/s, well inside the
+    400 Hz loop. **Yaw gains are deliberately ~100x smaller**: yaw torque is produced by
+    rotor-drag differential (``kQ``), which is ~100x weaker than the arm-lever roll/pitch
+    torque (``kT * arm``), so a large yaw gain would demand physically impossible rotor
+    differentials and saturate all four motors. Yaw does not affect interception (the quad
+    translates by tilting), so a gentle yaw hold is sufficient. Retuned in Phase 3; the
+    outer loop is algebraic (flatness) so its gains are unused placeholders for now.
+    """
+
+    # Inner loop (~400 Hz) attitude PDs, one per body axis (ki reserved for Phase 3).
+    inner_roll: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
+    inner_pitch: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
+    inner_yaw: PidGains = field(default_factory=lambda: PidGains(kp=2.0, ki=0.0, kd=0.5))
+    # Outer loop (~50 Hz) attitude-reference PIDs (unused; flatness map needs no gains yet).
     outer_xy: PidGains = field(default_factory=PidGains)
     outer_z: PidGains = field(default_factory=PidGains)
 
 
 @dataclass(frozen=True)
 class GuidanceParams:
-    """Guidance-law tuning (Role 3). Placeholders until Phase 2."""
+    """OGL guidance tuning (Role 3)."""
 
+    # Bounds clamped onto the lag-aware navigation-ratio schedule N'(t_go/T). Far from
+    # intercept N' -> 3 (classic PN limit); near intercept the lag term drives it up, so
+    # we cap it for numerical safety (Design Review — time-varying nav ratio).
     nav_ratio_min: float = constants.NAV_RATIO_MIN
     nav_ratio_max: float = constants.NAV_RATIO_MAX
     altitude_penalty_b: float = constants.ALTITUDE_PENALTY_B
     tilt_delay_time_constant_s: float = constants.TILT_DELAY_TIME_CONSTANT_S
+    # Time-to-go conditioning: floor avoids the terminal 1/t_go^2 blow-up; cap keeps a
+    # from-rest engagement finite. reference_closing_speed is used to synthesize a t_go
+    # when the true closing speed is ~0 (static target / interceptor at rest) so OGL still
+    # produces a closing command (ZEM trajectory-shaping).
+    time_to_go_min_s: float = 0.05
+    time_to_go_max_s: float = 30.0
+    reference_closing_speed_m_s: float = 5.0
+    # Augmented-ZEM (target-acceleration feed-forward) switch. OFF for Phase 2: the EKF
+    # estimates *relative* acceleration (a_target - a_interceptor), so against static/
+    # linear targets it mostly reflects the interceptor's own maneuver — feeding that back
+    # through the 0.5*a*t_go^2 term is positive feedback and destabilizes the loop. The
+    # correct feed-forward needs the target's *absolute* acceleration (isolated using the
+    # known interceptor acceleration); that compensation is Phase 4 work for evasive
+    # targets. Until then OGL uses the classic ZEM = r + v*t_go.
+    use_target_acceleration: bool = False
 
 
 @dataclass(frozen=True)
