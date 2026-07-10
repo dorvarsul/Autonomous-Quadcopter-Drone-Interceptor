@@ -81,9 +81,9 @@ Workshop_Autonomous_Systems/
 | Phase | File | Roadmap Window | Primary Role(s) | Outcome |
 | :--- | :--- | :--- | :--- | :--- |
 | 0 | [phase0.md](./phase0.md) | (pre-Phase-1 setup) | Role 6 (Integration Architect) | Repo scaffold, env verified, shared constants, data contracts, interfaces, deterministic logging, end-to-end stub pipeline runs headless |
-| 1 | [phase1.md](./phase1.md) | Jun 17 – Jun 30 | Role 1 (Simulation) | MuJoCo world, quad + target models, sensor noise/latency, trajectory generators, wind, off-screen rendering |
-| 2 | [phase2.md](./phase2.md) | Jul 1 – Jul 15 | Roles 2, 3, 4 | EKF, OGL (+PN/APN baselines), command limiter, dual-loop control, motor mixer, wired pipeline |
-| 3 | [phase3.md](./phase3.md) | Jul 16 – Aug 5 | Role 5 (+ owning roles tune) | KPI + scenario tooling, static & linear trials, parameter tuning, PN/APN/OGL benchmark |
+| 1 | [phase1.md](./phase1.md) | Jun 17 – Jun 30 | Role 1 (Simulation) | MuJoCo world, quad + target models, sensor noise/latency, trajectory generators, wind, off-screen rendering, opt-in interactive replay viewer (T1.10) |
+| 2 | [phase2.md](./phase2.md) | Jul 1 – Jul 15 | Roles 2, 3, 4 | EKF, OGL, command limiter, dual-loop control, motor mixer, wired pipeline |
+| 3 | [phase3.md](./phase3.md) | Jul 16 – Aug 5 | Role 5 (+ owning roles tune) | KPI + scenario tooling, static & linear trials, OGL parameter tuning |
 | 4 | [phase4.md](./phase4.md) | Aug 6 – Aug 20 | Role 5 (Test/KPI) | Sinusoidal/varying-speed/windy trials, randomized 3D Monte-Carlo, final KPI dataset |
 
 ## 6. KPI Success Criteria (5% Margin)
@@ -115,7 +115,10 @@ These are the acceptance bar for Phases 3–4 and the reference for all tuning.
 - **Fail loud:** surface saturation events, divergent EKF estimates, NaN/instability
   — never swallow them.
 - **Headless:** every script/test must run with off-screen rendering and be
-  non-interactive (no hanging GLFW window).
+  non-interactive (no hanging GLFW window). **Sole exception:** the opt-in replay
+  viewer (`scripts/replay.py`, Phase 1 T1.10) may open an interactive window, but only
+  as a manual consumer of an already-logged run — it never runs in tests/batch/CI,
+  never re-steps physics, and cannot affect any result.
 - **Stay in role:** make changes within the working role's boundaries; if a fix needs
   another layer, file the finding rather than editing across the contract.
 - **Confirm before:** adding dependencies, changing physical constants/tuning that

@@ -1,3 +1,24 @@
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Generated run artifacts (logs, KPI tables, plots, media)
+results/
+
+# Generated rendered media
+*.mp4
+*.gif
+*.png
+!docs/**/*.png
