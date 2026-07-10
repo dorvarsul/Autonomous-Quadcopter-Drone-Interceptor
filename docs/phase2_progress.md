@@ -20,17 +20,20 @@ how its Definition of Done was verified.
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-pytest                               # 142 passed (incl. 5 MuJoCo interception tests)
+pytest                               # 149 passed (incl. MuJoCo interception + replay tests)
 ruff check src tests scripts         # All checks passed
 
 # Fly a real guided interception and (optionally) watch it:
-python scripts/run_intercept.py --target 8 3 6 --seconds 9
-python scripts/replay.py results/intercept
+python scripts/run_intercept.py --target 8 3 6 --seconds 9   # stops at intercept (~4.9 s)
+python scripts/replay.py results/intercept                   # top isometric, both trails
+python scripts/replay.py results/intercept --view interceptor  # chase cam
 ```
 
 **Observed results (this machine):**
 
-- `pytest` → **142 passed** in ~4.7 s (up from 107; +35 Phase 2 tests).
+- `pytest` → **149 passed** in ~5.6 s (up from 107; +42 tests since Phase 1). The +7 over
+  the original Phase 2 count of 142 are the post-Phase-2 refinements below (engagement
+  termination + the two replay views/trails).
 - `ruff check` → **All checks passed**.
 - The wired pipeline intercepts static targets across varied 3D geometries to
   **0.01–0.04 m** miss distance (well within the `R_miss ≤ 1.05 m` KPI), in 3–6 s.
@@ -205,11 +208,39 @@ Estimation layer derives LOS rate without importing the Simulation layer.
   unlocked clean interception. Yaw does not affect interception (the quad translates by
   tilting).
 - **Interception is "functioning," not yet KPI-tuned.** Miss distance is already well under
-  1.05 m, but terminal-phase command **saturation is still high** (the ZEM `1/t_go²` term
-  peaks near intercept). Driving saturation under the 5 % KPI, and moving/evasive/windy
-  targets, is Phase 3–4.
+  1.05 m. Command **saturation over the real engagement is ~7.5 %** (target `[8,3,6]`, seed 0)
+  — modestly over the 5 % KPI, concentrated in the last few frames where the ZEM `1/t_go²`
+  term peaks near intercept. (An earlier report of ~49.6 % was an artifact of measuring over
+  a fixed-duration run: it counted ~4 s of physically meaningless *post-intercept flyby*,
+  now removed by engagement termination — see the addendum.) Driving that terminal peak
+  under 5 %, plus moving/evasive/windy targets, is Phase 3–4.
 - **No physical constants changed.** Only tuning *params* (EKF `Q`/`R`, PID gains, guidance
-  conditioning) were set; airframe/motor constants are untouched.
+  conditioning) were set; airframe/motor constants are untouched. The one added constant is
+  `INTERCEPT_CAPTURE_RADIUS_M` (a run/termination bound, not an airframe property).
+
+## Addendum — post-Phase-2 refinements (engagement termination + replay views)
+
+Two follow-ups after the initial Phase 2 sign-off, prompted by watching a replay where the
+interceptor hit the target cleanly and then flew on, lost stability, and diverged:
+
+- **Engagement termination at closest approach (Role 5/6).** `StubOrchestrator.run` gained
+  `terminate_on_intercept` (default **off**, so Phase 0/2 determinism tests are unchanged);
+  `run_intercept.py` turns it **on** by default (`--no-terminate` to opt out). Once the true
+  range enters `INTERCEPT_CAPTURE_RADIUS_M` (2.0 m) and starts increasing again, the loop
+  stops with the **closest-approach frame as the last logged row**. Rationale: past intercept
+  the target is *behind* the interceptor, OGL's geometry inverts (`t_go` collapses,
+  `1/t_go²` saturates), and the drone thrashes — none of which is interception behavior.
+  Removing that tail is what corrects the saturation figure (49.6 % → 7.5 %) and the reported
+  time-to-intercept. `RunResult.num_steps` now reports the *actual* steps executed.
+- **Replay viewer: two framed views + trajectory trails.** `scripts/replay.py` gained
+  `--view {top,interceptor}`: `top` is a fixed isometric camera auto-framed to the whole
+  engagement's bounding box (so both drones stay in frame — previously the free camera lost
+  them), `interceptor` is a chase camera tracking the interceptor body. Both overlay the
+  interceptor (blue) and target (orange) **trajectory trails**, drawn as decimated line
+  segments that grow with playback. When not looping, playback now **freezes on the intercept
+  frame with the window left open** for inspection instead of closing.
+- **Tests:** `+7` headless tests (camera framing, trail decimation/append, intercept-frame
+  detection; orchestrator termination stops at closest approach and trims the flyby tail).
 
 ## Ready for Phase 3
 

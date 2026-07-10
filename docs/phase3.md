@@ -45,7 +45,9 @@
   - [ ] **Time-to-Intercept** — time to reach the miss-distance threshold.
   - [ ] **Z-Axis Overshoot** — max altitude above the target during approach.
   - [ ] **Command Saturation** — fraction of flight time the Limiter/Mixer reported
-        saturation.
+        saturation, measured over the **terminated engagement** (run stops at closest
+        approach; do not count post-intercept flyby — see `run_intercept.py`
+        `terminate_on_intercept`, on by default).
   - [ ] **Max Target Speed handled** and **per-trial success/fail** vs the targets,
         each with the 5% margin from `config/constants.py`.
 - [ ] Pull thresholds from constants (no inline numbers); output a structured KPI

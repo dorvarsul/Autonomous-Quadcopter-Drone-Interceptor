@@ -44,7 +44,12 @@ def main(argv: list[str] | None = None) -> int:
                         metavar=("X", "Y", "Z"), help="Static target world position [m].")
     parser.add_argument("--start", type=float, nargs=3, default=[0.0, 0.0, 2.0],
                         metavar=("X", "Y", "Z"), help="Interceptor start position [m].")
-    parser.add_argument("--seconds", type=float, default=9.0, help="Flight duration [s].")
+    parser.add_argument("--seconds", type=float, default=9.0,
+                        help="Max flight duration [s] (upper bound; the run ends at "
+                             "intercept unless --no-terminate).")
+    parser.add_argument("--no-terminate", dest="terminate", action="store_false",
+                        help="Fly the full --seconds instead of stopping at closest "
+                             "approach (keeps the post-intercept flyby in the log).")
     parser.add_argument("--seed", type=int, default=0, help="Root RNG seed (determinism).")
     parser.add_argument("--run-id", default="intercept", help="Run identifier / folder name.")
     parser.add_argument("--results-dir", default="results", help="Base directory for artifacts.")
@@ -61,7 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = Path(args.results_dir) / args.run_id
     orchestrator = StubOrchestrator(components=components, params=params, seed=args.seed)
     result = orchestrator.run(
-        num_steps=int(args.seconds * constants.SIM_HZ), run_dir=run_dir, run_id=args.run_id
+        num_steps=int(args.seconds * constants.SIM_HZ), run_dir=run_dir, run_id=args.run_id,
+        terminate_on_intercept=args.terminate,
     )
 
     min_range, t_int = _min_range_m(result.log_path)
@@ -72,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  run log:  {result.log_path}")
     print(f"  snapshot: {result.snapshot_path}")
     print(f"View it with:  python scripts/replay.py {run_dir}")
+    print("  (top isometric by default; chase cam: --view interceptor)")
     return 0
 
 

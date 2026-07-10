@@ -128,6 +128,15 @@ PLACEHOLDER. Why: keep N' physically reasonable when driven by time-to-go (Role 
 R_MISS_MAX_M: float = 1.05
 """Max miss distance R_miss [m]. KPI: interception counts as a hit at <= 1.05 m."""
 
+INTERCEPT_CAPTURE_RADIUS_M: float = 2.0
+"""Terminal-phase capture radius [m]. Once the interceptor has come within this range,
+the engagement is 'in the endgame' and the run may terminate at closest approach
+(range stops shrinking). Set comfortably above R_MISS_MAX_M so the true minimum is
+captured, but small enough that a far-field transient never arms termination. Why:
+past closest approach the target is behind the interceptor and OGL's geometry inverts
+(t_go collapses, 1/t_go^2 saturates), so continued flight is physically meaningless
+thrashing, not interception behavior (Role 5/6 engagement-termination)."""
+
 T_INT_STATIC_MAX_S: float = 10.0
 """Max time-to-intercept for a static target [s]. KPI."""
 

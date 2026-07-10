@@ -77,8 +77,9 @@ writes a per-step run log + reproducibility snapshot to `results/<run_id>/`.
 ## Run the guided interception (Phase 2)
 
 ```powershell
-python scripts/run_intercept.py --target 8 3 6 --seconds 9
-python scripts/replay.py results/intercept        # optional 3D replay of the run
+python scripts/run_intercept.py --target 8 3 6 --seconds 9   # stops at intercept (~4.9 s)
+python scripts/replay.py results/intercept                   # top isometric view + trails
+python scripts/replay.py results/intercept --view interceptor  # chase-cam view
 ```
 
 Runs the full pipeline with the **real** components — MuJoCo plant, noisy/delayed sensor,
@@ -86,6 +87,12 @@ Runs the full pipeline with the **real** components — MuJoCo plant, noisy/dela
 (50 Hz / 400 Hz) control, and motor mixer — closing on a static target. It prints the
 achieved miss distance and writes a replayable run to `results/<run_id>/`. Headless and
 deterministic: same seed + config ⇒ byte-identical log.
+
+The run **stops at closest approach** by default (`--seconds` is an upper bound;
+`--no-terminate` flies the full duration). The replay viewer offers a `top` isometric
+camera framed to keep both drones in view and an `interceptor` chase camera, each drawing
+the interceptor (blue) and target (orange) **trajectory trails**; when not looping it
+freezes on the intercept frame with the window left open.
 
 > Phase 2 is *"correct, wired, and functioning"* — the loop intercepts static targets to
 > well within the 1.05 m KPI. Formal KPI tuning (saturation ≤ 5%, moving/evasive targets)

@@ -203,11 +203,26 @@ class StubOrchestrator:
             guidance_hz=constants.GUIDANCE_HZ,
         )
 
-    def run(self, num_steps: int, run_dir: Path, run_id: str = "phase0_stub") -> RunResult:
+    def run(
+        self,
+        num_steps: int,
+        run_dir: Path,
+        run_id: str = "phase0_stub",
+        *,
+        terminate_on_intercept: bool = False,
+        capture_radius_m: float = constants.INTERCEPT_CAPTURE_RADIUS_M,
+    ) -> RunResult:
         """Execute the loop headlessly and return a :class:`RunResult`.
 
         Enforces the headless guarantee up front: a non-headless renderer is a defect in
         an automated run and fails loud (AGENTS.md → no hanging GLFW window).
+
+        ``num_steps`` is the *maximum* duration. When ``terminate_on_intercept`` is set,
+        the run stops at closest approach — once the true interceptor↔target range has
+        come within ``capture_radius_m`` and then starts increasing, the engagement is
+        over (Role 5/6). The last logged frame is exactly that closest-approach point, so
+        no physically meaningless post-intercept flyby is recorded. Off by default so the
+        Phase 0/2 fixed-duration runs and their determinism tests are unaffected.
         """
         if not self._components.renderer.is_headless:
             raise RuntimeError(
@@ -243,10 +258,33 @@ class StubOrchestrator:
         desired_attitude: AttitudeReference | None = None
         motor_command = MotorCommand(rotor_rpm=np.full(4, constants.MOTOR_RPM_MIN))
 
+        # Engagement-termination state (closest-approach detection).
+        previous_range_m: float | None = None
+        capture_armed = False
+        steps_completed = 0
+
         with RunLogger(run_dir, LOG_FIELDS) as logger:
             for tick in self._scheduler.ticks(num_steps):
                 interceptor_pos = c.plant.position_m
                 target_pos = c.trajectory.position_at(tick.sim_time_s)
+
+                # --- Engagement termination (Role 5/6) -------------------------------
+                # Stop at closest approach: once inside the capture radius, the first
+                # frame where the range grows means the previous (already-logged) frame
+                # was the intercept point. Break *before* stepping/logging this receding
+                # frame so the log ends exactly at closest approach.
+                if terminate_on_intercept:
+                    true_range_m = float(np.linalg.norm(target_pos - interceptor_pos))
+                    if true_range_m <= capture_radius_m:
+                        capture_armed = True
+                    if (
+                        capture_armed
+                        and previous_range_m is not None
+                        and true_range_m > previous_range_m
+                    ):
+                        break
+                    previous_range_m = true_range_m
+
                 # Drive the kinematic target body (mocap) so a real plant renders/replays
                 # the target; stub plants without this method are unaffected.
                 set_target_pose = getattr(c.plant, "set_target_pose", None)
@@ -291,9 +329,10 @@ class StubOrchestrator:
                         motor_command,
                     )
                 )
+                steps_completed += 1
 
         return RunResult(
-            num_steps=num_steps,
+            num_steps=steps_completed,
             run_dir=run_dir,
             log_path=run_dir / "run_log.csv",
             snapshot_path=snapshot_path,
