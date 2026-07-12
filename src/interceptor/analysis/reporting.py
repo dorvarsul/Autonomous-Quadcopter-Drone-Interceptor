@@ -19,6 +19,7 @@ at a glance:
 from __future__ import annotations
 
 import csv
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,8 +31,11 @@ import matplotlib.pyplot as plt  # noqa: E402  (backend must be set first)
 import numpy as np  # noqa: E402
 
 from interceptor.analysis.kpis import RunTrace, load_run_trace  # noqa: E402
+from interceptor.analysis.montecarlo import BatchSummary  # noqa: E402
 from interceptor.analysis.scenarios import ScenarioResult  # noqa: E402
+from interceptor.common.logging import get_git_hash  # noqa: E402
 from interceptor.config import constants  # noqa: E402
+from interceptor.config.params import default_params  # noqa: E402
 
 # The columns of the KPI summary table, in a fixed order for a deterministic CSV.
 _SUMMARY_COLUMNS = (
@@ -234,3 +238,208 @@ def write_ablation_plot(
 def _b(result: ScenarioResult) -> float:
     """The altitude penalty b actually used by a scenario result."""
     return result.scenario.params.guidance.altitude_penalty_b
+
+
+# --------------------------------------------------------------------------------
+# Monte-Carlo batch reporting (Phase 4 T4.6) — the final KPI dataset + plots.
+# --------------------------------------------------------------------------------
+
+# Per-trial KPI dataset columns, fixed order for a deterministic CSV.
+_BATCH_COLUMNS = (
+    "trial",
+    "family",
+    "wind",
+    "seed",
+    "intercepted",
+    "miss_distance_m",
+    "time_to_intercept_s",
+    "time_ok",
+    "z_overshoot_m",
+    "z_overshoot_ok",
+    "command_saturation_frac",
+    "saturation_ok",
+    "max_target_speed_kmh",
+    "full_kpi_pass",
+)
+
+
+def write_batch_kpis_csv(summary: BatchSummary, out_path: str | Path) -> Path:
+    """Write the per-trial KPI dataset (the Phase 4 final dataset) as a deterministic CSV."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=_BATCH_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        for r in summary.results:
+            k = r.kpis
+            writer.writerow({
+                "trial": r.name,
+                "family": r.family,
+                "wind": r.wind_preset,
+                "seed": r.scenario.seed,
+                "intercepted": int(k.miss_ok),
+                "miss_distance_m": f"{k.miss_distance_m:.4f}",
+                "time_to_intercept_s": f"{k.time_to_intercept_s:.3f}",
+                "time_ok": int(k.time_ok),
+                "z_overshoot_m": f"{k.z_overshoot_m:.4f}",
+                "z_overshoot_ok": int(k.z_overshoot_ok),
+                "command_saturation_frac": f"{k.command_saturation_frac:.4f}",
+                "saturation_ok": int(k.saturation_ok),
+                "max_target_speed_kmh": f"{k.max_target_speed_kmh:.2f}",
+                "full_kpi_pass": int(k.success),
+            })
+    return out_path
+
+
+def _batch_manifest_dict(summary: BatchSummary) -> dict:
+    """Assemble the reproducibility + headline-KPI manifest for a batch."""
+    p = default_params()
+    rate = summary.mission_success_rate
+    max_speed = summary.max_intercepted_speed_kmh
+    return {
+        "master_seed": summary.master_seed,
+        "num_trials": summary.num_trials,
+        "git_hash": get_git_hash(),
+        "tuning": {
+            "max_tilt_rad": p.limiter.max_tilt_rad,
+            "max_acceleration_m_s2": p.limiter.max_acceleration_m_s2,
+            "reference_closing_speed_m_s": p.guidance.reference_closing_speed_m_s,
+            "altitude_penalty_b": p.guidance.altitude_penalty_b,
+        },
+        "kpi_targets": {
+            "r_miss_max_m": constants.R_MISS_MAX_M,
+            "z_overshoot_max_m": constants.Z_OVERSHOOT_MAX_M,
+            "cmd_saturation_max_frac": constants.CMD_SATURATION_MAX_FRAC,
+            "max_target_speed_min_kmh": constants.MAX_TARGET_SPEED_MIN_KMH,
+            "mission_success_min": constants.MISSION_SUCCESS_MIN,
+        },
+        "results": {
+            "mission_success_rate": rate,
+            "mission_success_pass": rate >= constants.MISSION_SUCCESS_MIN,
+            "num_intercepted": summary.num_intercepted,
+            "num_full_kpi_pass": summary.num_full_kpi_pass,
+            "max_intercepted_speed_kmh": max_speed,
+            "max_speed_pass": max_speed >= constants.MAX_TARGET_SPEED_MIN_KMH,
+            "kpi_compliance": {k: list(v) for k, v in summary.kpi_compliance.items()},
+            "interception_by_family": {k: list(v) for k, v in summary.by_family.items()},
+            "interception_by_wind": {k: list(v) for k, v in summary.by_wind.items()},
+        },
+    }
+
+
+def write_batch_manifest(summary: BatchSummary, out_path: str | Path) -> Path:
+    """Write the batch manifest (seed + git hash + tuning + headline KPIs) as sorted JSON."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8", newline="\n") as handle:
+        json.dump(_batch_manifest_dict(summary), handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return out_path
+
+
+def format_batch_summary_markdown(summary: BatchSummary) -> str:
+    """Render the batch headline KPIs + breakdowns as Markdown (for the progress doc)."""
+    rate = summary.mission_success_rate
+    lines = [
+        f"**Mission Success Rate (interception):** {summary.num_intercepted}/{summary.num_trials} "
+        f"= {100 * rate:.1f}% (KPI ≥ {100 * constants.MISSION_SUCCESS_MIN:.0f}% — "
+        f"{'PASS' if rate >= constants.MISSION_SUCCESS_MIN else 'FAIL'})",
+        f"**Max intercepted target speed:** {summary.max_intercepted_speed_kmh:.1f} km/h "
+        f"(KPI ≥ {constants.MAX_TARGET_SPEED_MIN_KMH:.1f})",
+        "",
+        "| KPI | Compliance |",
+        "| :--- | ---: |",
+    ]
+    for name, (met, total) in summary.kpi_compliance.items():
+        lines.append(f"| {name} | {met}/{total} ({100 * met / total:.0f}%) |")
+    lines += ["", "| Family | Interception |", "| :--- | ---: |"]
+    for family, (ok, total) in summary.by_family.items():
+        lines.append(f"| {family} | {ok}/{total} ({100 * ok / total:.0f}%) |")
+    return "\n".join(lines)
+
+
+def _plot_batch_distributions(summary: BatchSummary, report_dir: Path) -> list[Path]:
+    """Four distribution panels that visualize the batch KPIs; returns the plot paths."""
+    miss = np.array([r.kpis.miss_distance_m for r in summary.results])
+    speed = np.array([r.kpis.max_target_speed_kmh for r in summary.results])
+    sat = np.array([100 * r.kpis.command_saturation_frac for r in summary.results])
+    hit = np.array([r.kpis.miss_ok for r in summary.results])
+
+    out = report_dir / "batch_distributions.png"
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+    fig.suptitle(
+        f"Monte-Carlo batch (seed {summary.master_seed}, {summary.num_trials} trials) — "
+        f"mission success {100 * summary.mission_success_rate:.1f}%"
+    )
+
+    # (1) Miss-distance distribution (clipped so the long tail stays legible).
+    ax = axes[0, 0]
+    ax.hist(np.clip(miss, 0, 5), bins=25, color="tab:green", alpha=0.8)
+    ax.axvline(constants.R_MISS_MAX_M, ls="--", color="black", label="R_miss KPI")
+    ax.set_xlabel("miss distance [m] (clipped at 5)")
+    ax.set_ylabel("trials")
+    ax.set_title("Miss-distance distribution")
+    ax.legend()
+
+    # (2) Interception vs target speed — shows fast targets are still intercepted.
+    ax = axes[0, 1]
+    ax.scatter(speed[hit], miss[hit], s=18, color="tab:blue", label="intercepted")
+    ax.scatter(speed[~hit], np.clip(miss[~hit], 0, 5), s=18, color="tab:red", label="missed")
+    ax.axhline(constants.R_MISS_MAX_M, ls="--", color="black")
+    ax.axvline(constants.MAX_TARGET_SPEED_MIN_KMH, ls=":", color="grey", label="speed KPI")
+    ax.set_xlabel("max target speed [km/h]")
+    ax.set_ylabel("miss distance [m] (clipped)")
+    ax.set_title("Miss vs target speed")
+    ax.legend()
+
+    # (3) Interception by family.
+    ax = axes[1, 0]
+    fam = summary.by_family
+    names = list(fam)
+    rates = [100 * fam[n][0] / fam[n][1] for n in names]
+    ax.bar(names, rates, color="tab:purple", alpha=0.8)
+    ax.axhline(100 * constants.MISSION_SUCCESS_MIN, ls="--", color="black", label="90% KPI")
+    ax.set_ylabel("interception rate [%]")
+    ax.set_ylim(0, 105)
+    ax.set_title("Interception by target family")
+    ax.legend()
+
+    # (4) Command-saturation distribution against the 5% KPI.
+    ax = axes[1, 1]
+    ax.hist(np.clip(sat, 0, 40), bins=25, color="tab:orange", alpha=0.8)
+    ax.axvline(100 * constants.CMD_SATURATION_MAX_FRAC, ls="--", color="black", label="5% KPI")
+    ax.set_xlabel("command saturation [% of frames] (clipped at 40)")
+    ax.set_ylabel("trials")
+    ax.set_title("Command-saturation distribution")
+    ax.legend()
+
+    fig.tight_layout()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=110)
+    plt.close(fig)
+    return [out]
+
+
+@dataclass(frozen=True)
+class BatchReportPaths:
+    """Where a Monte-Carlo batch report was written."""
+
+    kpi_csv: Path
+    manifest_json: Path
+    summary_markdown: str
+    plot_paths: list[Path]
+
+
+def write_batch_report(summary: BatchSummary, report_dir: str | Path) -> BatchReportPaths:
+    """Write the final Phase 4 batch report: per-trial dataset, manifest, and distribution plots."""
+    report_dir = Path(report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    kpi_csv = write_batch_kpis_csv(summary, report_dir / "batch_kpis.csv")
+    manifest = write_batch_manifest(summary, report_dir / "batch_manifest.json")
+    plots = _plot_batch_distributions(summary, report_dir)
+    return BatchReportPaths(
+        kpi_csv=kpi_csv,
+        manifest_json=manifest,
+        summary_markdown=format_batch_summary_markdown(summary),
+        plot_paths=plots,
+    )

@@ -1,0 +1,14 @@
+# Static intercept under the gusty stress preset (stronger steady wind + sharp, frequent
+# gusts). The harshest disturbance on a simple geometry — a clean read on how much the wind
+# alone costs in saturation and miss distance. Phase 4 T4.3.
+name: wind_static_gusty
+seed: 0
+target_class: static
+guidance_law: OGL
+time_limit_s: 12.0
+wind_preset: gusty
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: static
+  position_m: [10.0, 3.0, 6.0]

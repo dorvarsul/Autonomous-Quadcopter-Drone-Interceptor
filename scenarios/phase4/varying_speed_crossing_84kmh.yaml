@@ -1,0 +1,17 @@
+# Beam-crossing high-speed pass ramping to 23.3 m/s (~83.9 km/h), just clearing the
+# 83.6 km/h KPI: the target streaks across the frontal plane, the hardest lead problem
+# (no closing-speed help from geometry). Phase 4 T4.2.
+name: varying_speed_crossing_84kmh
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 16.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: varying_speed
+  start_position_m: [15.0, -16.0, 5.0]
+  heading: [0.0, 1.0, 0.0]
+  initial_speed_m_s: 12.0
+  peak_speed_m_s: 23.3
+  ramp_duration_s: 2.5

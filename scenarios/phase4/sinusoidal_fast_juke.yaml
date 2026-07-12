@@ -1,0 +1,16 @@
+# Higher-frequency juke: the target reverses lateral direction more often, so the EKF must
+# track a faster-changing LOS and OGL must re-plan aggressively. A deliberately harder
+# evasive case than the slow weave. Phase 4 T4.1.
+name: sinusoidal_fast_juke
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 18.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: sinusoidal
+  start_position_m: [10.0, -3.0, 5.0]
+  drift_velocity_m_s: [0.0, 1.5, 0.0]
+  amplitude_m: [0.0, 1.0, 0.5]
+  frequency_hz: 0.5

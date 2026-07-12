@@ -139,8 +139,9 @@ recover a clean, trustworthy picture of the target's motion.
 
 ### 2.7 Radians
 
-Angles here are in **radians**, not degrees. π radians = 180°. So 45° ≈ 0.785 radians,
-which you'll see as `0.7854` in the code (the maximum tilt).
+Angles here are in **radians**, not degrees. π radians = 180°. So 60° ≈ 1.047 radians,
+which you'll see as `1.0472` in the code (the maximum tilt, raised from 45° in Phase 4 to
+give the interceptor more authority against fast, evasive targets).
 
 ---
 
@@ -628,11 +629,11 @@ produce. The limiter is the **single place** that clamps the request to somethin
 and the single place that **measures saturation**. Two bounds:
 
 - **Tilt limit.** Since horizontal acceleration comes only from tilting, the maximum
-  horizontal acceleration is `g · tan(max_tilt)`. With the Phase-3-tuned max tilt of 45°
-  (0.7854 rad), that's `9.81 · tan(45°) = 9.81 m/s²`. A larger horizontal request is
+  horizontal acceleration is `g · tan(max_tilt)`. With the Phase-4-tuned max tilt of 60°
+  (1.0472 rad), that's `9.81 · tan(60°) ≈ 17.0 m/s²`. A larger horizontal request is
   scaled back to this cap.
 - **Total magnitude limit.** The overall acceleration magnitude is capped at
-  `max_acceleration` (30 m/s²) to protect the rotors.
+  `max_acceleration` (40 m/s²) to protect the rotors.
 
 Every clamp is **reported**: a `saturated` flag plus how much acceleration was removed,
 and it's logged with a warning. Why so careful? Because **"command saturation ≤ 5% of
@@ -640,10 +641,15 @@ flight time" is a graded KPI** — being pinned at the limit means you've lost c
 authority, and the project measures exactly how often that happens. Concentrating all
 clamping here (and nowhere else) means saturation is counted in exactly one place.
 
-That 45° tilt limit was **raised from 35° in Phase 3** (with sign-off): at 35° the
-horizontal authority was only ~6.87 m/s², and aggressive cross-range dashes kept hitting
-it, blowing the saturation KPI. 45° gives a full `g` of horizontal authority while staying
-conservative for a quadrotor.
+That tilt limit has been raised twice, each with sign-off: **35° → 45° in Phase 3** (at 35°
+the horizontal authority was only ~6.87 m/s² and cross-range dashes kept hitting it), then
+**45° → 60° in Phase 4** (at 45° = a full `g`, chasing weaving and 90 km/h targets still
+clamped for 15–30% of a short engagement — the dominant saturation-KPI miss on the randomized
+batch). 60° raises horizontal authority to ~17 m/s², which lifted randomized-batch mission
+success from ~57% to **93%**; the total-magnitude cap was raised 30 → 40 m/s² at the same
+time. 60° is the aggressive-but-physical end for an interceptor — going further (65°) began to
+*overshoot* easy static targets. The airframe's ~250 m/s² thrust capacity means these limits
+are real authority, not saturation hidden in the motors.
 
 ---
 
@@ -933,8 +939,25 @@ target:
 
 The runner reuses the existing trajectory generators and the exact same closed loop —
 it only *declares and drives*, no physics logic of its own. It fails loud on unknown
-trajectory types, missing keys, or a non-OGL law. The library currently has **6 static +
-5 linear** geometries, plus a `scenarios/ablation/` pair for the `b`-penalty study.
+trajectory types, missing keys, or a non-OGL law. A scenario may also name a `wind_preset`
+(`calm`/`moderate`/`gusty`) as a shorthand for the wind profile. The library has **6 static +
+5 linear** geometries (Phase 3), a `scenarios/ablation/` pair for the `b`-penalty study, and
+**`scenarios/phase4/`** with **4 sinusoidal (evasive) + 3 varying-speed (high-speed, to 90
+km/h) + 4 wind** stress scenarios (Phase 4).
+
+### 15.3b Randomized Monte-Carlo trials: [`montecarlo.py`](../src/interceptor/analysis/montecarlo.py)
+
+Named scenarios probe *specific* geometries; the **Monte-Carlo harness** samples the *whole*
+threat envelope. From one `master_seed` it draws a seeded batch of randomized 3D engagements
+(geometry in a frontal cone, a weighted trajectory family, family parameters, and a weighted
+wind preset), turns each draw into a validated `Scenario`, and flies it. It measures the
+**Mission Success Rate = interception fraction** (matching the design review's *"≥ 90%
+interception"*), reports the other KPIs as separate compliance rates, and breaks results down
+per family and per wind preset so weak regimes are exposed, not hidden. Each trial's run seed
+is its index, so `(master_seed, num_trials)` reproduces the whole batch byte-for-byte, and a
+batch manifest records the master seed + git hash + the committed tuning. This is what
+certifies the Phase 4 headline: **93% mission success**, a **90 km/h**-class target
+intercepted, and interception essentially flat under wind.
 
 ### 15.4 Reporting: [`reporting.py`](../src/interceptor/analysis/reporting.py)
 
@@ -946,10 +969,11 @@ range + command-effort with saturated frames shaded). It forces matplotlib's **h
 ### 15.5 The test suite
 
 Under [`tests/`](../tests/), split into `unit/` (per-component: EKF, guidance, control,
-sensors, trajectories, frames, KPIs, ...) and `integration/` (whole-pipeline: stub loop,
-real interception, scenario suite, MuJoCo headless render). Tests are **headless,
-non-interactive, and seeded**. As of Phase 3: **178 passing tests**. Tests that need the
-GL context are marked `mujoco` so they can be skipped where there's no display.
+sensors, trajectories, frames, KPIs, Monte-Carlo sampling/aggregation, wind wiring, ...) and
+`integration/` (whole-pipeline: stub loop, real interception, scenario suites, a reproducible
+Monte-Carlo batch, MuJoCo headless render). Tests are **headless, non-interactive, and
+seeded**. As of Phase 4: **208 passing tests**. Tests that need the GL context are marked
+`mujoco` so they can be skipped where there's no display.
 
 Key rule from `AGENTS.md`: *the Test/KPI role measures and reports faithfully; it never
 tweaks the guidance/control internals or relaxes a target to manufacture a pass.* When it
@@ -981,13 +1005,15 @@ Workshop_Autonomous_Systems/
 ├── scenarios/                 # Declarative trial configs (YAML)
 │   ├── static_*.yaml          # 6 static-target geometries
 │   ├── linear_*.yaml          # 5 constant-velocity geometries
-│   └── ablation/*.yaml        # b=0 controls for the altitude-penalty study
+│   ├── ablation/*.yaml        # b=0 controls for the altitude-penalty study
+│   └── phase4/*.yaml          # 4 sinusoidal + 3 varying-speed + 4 wind stress scenarios
 │
 ├── scripts/                   # Entry points
 │   ├── check_env.py           # Environment doctor (verifies MuJoCo, off-screen render)
 │   ├── run_stub_pipeline.py   # Phase 0 — the loop on pass-through stubs
 │   ├── run_intercept.py       # Phase 2 — real guided interception, static target
 │   ├── run_scenarios.py       # Phase 3 — run scenario(s), print KPI table, optional report
+│   ├── run_montecarlo.py      # Phase 4 — randomized 3D Monte-Carlo mission-success batch
 │   ├── run_sim_demo.py        # Simulation-only demo
 │   └── replay.py              # Interactive replay viewer of a recorded run
 │
@@ -1034,7 +1060,8 @@ Workshop_Autonomous_Systems/
 │   └── analysis/              # KPI/validation (Role 5)
 │       ├── kpis.py            # Measure metrics from a run log
 │       ├── scenarios.py       # Declarative scenario runner
-│       └── reporting.py       # Summary tables + diagnostic plots
+│       ├── montecarlo.py      # Randomized 3D Monte-Carlo harness + aggregation
+│       └── reporting.py       # Summary tables, batch dataset/manifest, diagnostic plots
 │
 ├── tests/                     # unit/ + integration/ — headless, seeded
 └── results/                   # Generated run logs, snapshots, reports (per run_id)
@@ -1068,8 +1095,12 @@ python scripts/replay.py results/intercept --view interceptor # chase cam
 python scripts/run_scenarios.py scenarios/linear_crossing.yaml
 python scripts/run_scenarios.py scenarios/ --report           # -> results/phase3/
 
+# The evasive/high-speed/wind stress probes, and the randomized batch (Phase 4)
+python scripts/run_scenarios.py scenarios/phase4 --results-dir results/phase4
+python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/phase4/montecarlo
+
 # The tests
-pytest                    # everything (~178 tests)
+pytest                    # everything (~208 tests)
 pytest -m "not mujoco"    # skip the off-screen GL render test
 ```
 
@@ -1092,17 +1123,24 @@ The project is built in four phases (from the design review):
 - **Phase 3 — ✅ Done.** KPI + scenario tooling, and tuning to *meet spec* on static and
   linear targets: **11/11 scenarios pass every KPI** (miss distances 0.005–0.063 m, all
   saturation ≤ 5%). Two tuning changes were made with sign-off: reference closing speed
-  5.0 → 3.5 m/s, and max tilt 35° → 45°. The current git branch is `phase-3`.
-- **Phase 4 — Upcoming.** Randomized 3D trials against **evasive** (sinusoidal),
-  **high-speed** (≥ 83.6 km/h), and **windy** targets; the ≥ 90% mission-success KPI; and
-  revisiting the two currently-deferred items: the **augmented-ZEM** target-acceleration
-  term (for maneuvering targets) and the **b penalty**'s role under higher vertical rates.
+  5.0 → 3.5 m/s, and max tilt 35° → 45°.
+- **Phase 4 — ✅ Done.** Randomized 3D trials against **evasive** (sinusoidal),
+  **high-speed** (to 90 km/h), and **windy** targets, plus a seeded Monte-Carlo harness for
+  the mission-success KPI. Headline results: **93% mission success (interception)**, a
+  cleanly intercepted **89.7 km/h** target, and Z-overshoot within KPI, with wind robustness
+  confirmed. One params-only tuning change was made with sign-off: max tilt 45° → 60° (and
+  the total-accel cap 30 → 40 m/s²). The residual **command-saturation** tail on very short
+  high-speed intercepts is characterized and filed for a future adaptive-authority refinement
+  (see `docs/phase4_progress.md`). The current git branch is `phase-4`.
 
-Two design decisions worth remembering (recorded in the project's memory):
+Three design decisions worth remembering (recorded in the project's memory):
 - **OGL is the sole guidance law.** PN/APN were evaluated and rejected; they are not
   implemented.
-- **The augmented-ZEM term is gated off** until Phase 4, because with a relative-state EKF
-  it would feed the interceptor's own maneuver back as positive feedback.
+- **The augmented-ZEM term remains gated off.** With a relative-state EKF it would feed the
+  interceptor's own maneuver back as positive feedback; it stays the candidate next step for
+  the fast-crossing tail rather than a shipped feature.
+- **Mission success is measured as *interception***, per the design review — the other KPIs
+  (saturation, Z-overshoot, time) are reported as separate compliance rates.
 
 ---
 
@@ -1151,6 +1189,6 @@ Two design decisions worth remembering (recorded in the project's memory):
 
 ---
 
-*This document reflects the codebase as of the `phase-3` branch. For the authoritative
+*This document reflects the codebase as of the `phase-4` branch. For the authoritative
 design rationale see the Design Review; for the engineering rules see `AGENTS.md`; for what
 was actually built and verified in each phase see the `docs/phase*_progress.md` reports.*

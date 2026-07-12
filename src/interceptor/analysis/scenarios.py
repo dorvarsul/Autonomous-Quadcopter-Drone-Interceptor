@@ -22,7 +22,7 @@ Design intent:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ from interceptor.simulation.trajectories.generators import (
     StaticTrajectory,
     VaryingSpeedTrajectory,
 )
+from interceptor.simulation.wind import WIND_PRESETS
 
 # The sole guidance law (OGL-only scope). A scenario may name it explicitly; anything else
 # is a defect, not a silent fallback.
@@ -165,6 +166,23 @@ def scenario_from_dict(spec: dict[str, Any]) -> Scenario:
     if not isinstance(override, dict):
         raise ValueError("Scenario 'params' override must be a mapping.")
     params = _merge_into(default_params(), override)
+
+    # Optional named wind preset (calm/moderate/gusty) — a readable shorthand for the
+    # Phase 4 wind trials that keeps the preset definitions in one place (wind.py, DRY).
+    # It sets params.wind wholesale, so combining it with an explicit params.wind override
+    # is ambiguous and fails loud rather than silently letting one win.
+    preset_name = spec.get("wind_preset")
+    if preset_name is not None:
+        if "wind" in override:
+            raise ValueError(
+                "Scenario sets both 'wind_preset' and params.wind; use one (they both set "
+                "the wind profile)."
+            )
+        if preset_name not in WIND_PRESETS:
+            raise ValueError(
+                f"Unknown wind_preset '{preset_name}'; expected one of {sorted(WIND_PRESETS)}."
+            )
+        params = replace(params, wind=WIND_PRESETS[preset_name]())
 
     return Scenario(
         name=str(_require(spec, "name", "root")),

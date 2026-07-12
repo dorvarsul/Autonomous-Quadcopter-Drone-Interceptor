@@ -1,0 +1,15 @@
+# Full 3D evasion: the target weaves on all three axes while drifting across — the hardest
+# geometry for the estimator/guidance pair (coupled lateral + vertical maneuver). Phase 4 T4.1.
+name: sinusoidal_3d_spiral
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 18.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: sinusoidal
+  start_position_m: [9.0, 4.0, 6.0]
+  drift_velocity_m_s: [0.0, -1.5, 0.0]
+  amplitude_m: [0.8, 0.8, 0.8]
+  frequency_hz: 0.3

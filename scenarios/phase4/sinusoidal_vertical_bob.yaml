@@ -1,0 +1,16 @@
+# Crossing target that also bobs in altitude (Z weave) — stresses the Z axis the b-penalty
+# governs while the target translates. Checks Z-overshoot stays <= 0.5 m against a moving
+# vertical evasion. Phase 4 T4.1.
+name: sinusoidal_vertical_bob
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 18.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: sinusoidal
+  start_position_m: [9.0, -4.0, 5.0]
+  drift_velocity_m_s: [0.0, 1.5, 0.0]
+  amplitude_m: [0.0, 0.0, 1.2]
+  frequency_hz: 0.3

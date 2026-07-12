@@ -125,15 +125,26 @@ class GuidanceParams:
 class LimiterParams:
     """Command-limiter bounds (Role 4, SAFETY)."""
 
-    # Max commandable linear acceleration magnitude [m/s^2].
-    max_acceleration_m_s2: float = 30.0
-    # Max commandable tilt angle [rad]. Phase 3 tuning (T3.7, user-approved): raised 0.6109
-    # (~35 deg) -> 0.7854 (45 deg). The horizontal acceleration authority is g*tan(max_tilt),
-    # so 35 deg capped it at ~6.87 m/s^2 and the launch/cross-range dashes clamped against it
-    # (command-saturation KPI). 45 deg raises the authority to g = 9.81 m/s^2, keeping the
-    # aggressive geometries within the <= 5% saturation KPI; 45 deg remains conservative for a
-    # quadrotor. Paired with the softened reference_closing_speed above (see phase3_progress).
-    max_tilt_rad: float = 0.7854
+    # Max commandable linear acceleration magnitude [m/s^2]. Phase 4 tuning (user-approved,
+    # params-only): raised 30 -> 40. The total-magnitude cap only binds on the most aggressive
+    # climbing dashes (the tilt cap below governs the horizontal component first); 40 m/s^2
+    # gives the fast-target/evasive engagements headroom before clamping while staying far
+    # inside the airframe's ~250 m/s^2 thrust capacity, so the motor mixer never saturates in
+    # its place (i.e. this is real authority, not hidden saturation). See docs/phase4_progress.md.
+    max_acceleration_m_s2: float = 40.0
+    # Max commandable tilt angle [rad]. Phase 3 (T3.7): 0.6109 (35 deg) -> 0.7854 (45 deg).
+    # Phase 4 tuning (user-approved, params-only): 0.7854 (45 deg) -> 1.0472 (60 deg). The
+    # horizontal acceleration authority is g*tan(max_tilt): 45 deg capped it at g = 9.81 m/s^2,
+    # against which the fast/evasive Phase 4 geometries (chasing a weaving target, meeting a
+    # 90 km/h closer) clamped for 15-30% of a short engagement -> the dominant command-saturation
+    # KPI miss on the randomized batch. 60 deg raises the authority to g*tan60 = 17.0 m/s^2,
+    # which lifts the randomized-batch mission-success (interception) rate to ~93% and keeps
+    # saturation within KPI on the large majority of engagements. 60 deg is the aggressive-but-
+    # physical end for an interceptor: the vertical thrust component cos(60) = 0.5 is still ample
+    # given the thrust headroom, and static/linear intercepts remain overshoot-free (no Phase 3
+    # regression). Going further (65 deg) began to overshoot easy static targets, so 60 deg is
+    # the chosen balance. See docs/phase4_progress.md (T4.1-T4.5).
+    max_tilt_rad: float = 1.0472
 
 
 @dataclass(frozen=True)

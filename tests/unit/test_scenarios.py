@@ -64,8 +64,8 @@ def test_params_override_deep_merges_onto_defaults():
     """A scenario's params block overrides only the named knob; the rest keep defaults."""
     scenario = scenario_from_dict(_static_spec(params={"guidance": {"altitude_penalty_b": 0.0}}))
     assert scenario.params.guidance.altitude_penalty_b == 0.0
-    # An untouched knob keeps its default.
-    assert scenario.params.limiter.max_acceleration_m_s2 == 30.0
+    # An untouched knob keeps its default (Phase 4 tuning: limiter accel default is 40.0).
+    assert scenario.params.limiter.max_acceleration_m_s2 == 40.0
 
 
 def test_build_trajectory_unknown_type_fails_loud():

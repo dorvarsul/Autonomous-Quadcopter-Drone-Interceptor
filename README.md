@@ -34,7 +34,7 @@ src/interceptor/
   guidance/    # Role 3 — GuidanceLaw interface; OGL (Phase 2)
   control/     # Role 4 — command limiter, dual-loop control, motor mixer
   pipeline/    # Role 6 — multi-rate scheduler + orchestrator
-  analysis/    # Role 5 — KPIs, scenarios, reporting (Phase 3+)
+  analysis/    # Role 5 — KPIs, scenarios, Monte-Carlo harness, reporting (Phase 3–4)
 scripts/       # check_env.py (env doctor), run_stub_pipeline.py
 tests/         # unit/ + integration/ — headless, non-interactive
 models/ scenarios/ results/   # MJCF, scenario configs, generated run artifacts
@@ -97,6 +97,39 @@ freezes on the intercept frame with the window left open.
 > Phase 2 is *"correct, wired, and functioning"* — the loop intercepts static targets to
 > well within the 1.05 m KPI. Formal KPI tuning (saturation ≤ 5%, moving/evasive targets)
 > is Phase 3–4.
+
+## Run the KPI scenarios (Phase 3–4)
+
+```powershell
+# Static/linear named scenarios (Phase 3) and evasive/high-speed/wind stress probes (Phase 4):
+python scripts/run_scenarios.py scenarios/ --report            # -> results/phase3/
+python scripts/run_scenarios.py scenarios/phase4 --results-dir results/phase4
+
+# Randomized 3D Monte-Carlo mission-success batch + final report/plots (Phase 4):
+python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/phase4/montecarlo
+```
+
+`run_scenarios.py` flies each declarative scenario through the real closed loop and prints a
+pass/fail KPI table; `run_montecarlo.py` samples a **seeded randomized 3D threat envelope**
+(family, geometry, speed, wind) and reports the **Mission Success Rate**. Both are headless and
+deterministic — a fixed seed reproduces byte-identical logs, and every run/batch writes a
+config+seed+git-hash snapshot for reproducibility.
+
+## Final performance (Phase 4)
+
+Over a seeded randomized 3D Monte-Carlo batch (see `docs/phase4_progress.md`):
+
+| Metric | Target | Result |
+| :--- | :--- | :--- |
+| Mission Success Rate (interception) | ≥ 90% | **93%** |
+| Max Target Speed intercepted | ≥ 83.6 km/h | **89.7 km/h** |
+| Z-Axis Overshoot | ≤ 0.5 m | 95% compliance (median ≈ 0.02 m) |
+| Wind robustness (calm/moderate/gusty) | — | 92% / 96% / 93% interception |
+
+The interceptor tracks, navigates toward, and intercepts static, linear, **evasive (weaving)**,
+and **high-speed (to 90 km/h)** targets, and holds up under wind/gust disturbance — all with the
+Classical Hierarchical pipeline (no DRL). The residual **command-saturation** tail on very short
+high-speed intercepts is characterized and filed as a finding (`docs/phase4_progress.md`, F4-1).
 
 ## Run the tests (headless, non-interactive)
 

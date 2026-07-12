@@ -68,6 +68,7 @@ from interceptor.simulation.stubs import (
     StationaryPlant,
 )
 from interceptor.simulation.trajectories.generators import StaticTrajectory
+from interceptor.simulation.wind import WindField
 
 # Columns of the per-step run log. Fixed order => deterministic CSV.
 # The pose columns (interceptor quaternion + target position) make a run replayable in
@@ -98,6 +99,26 @@ LOG_FIELDS = (
 # Identity orientation used when a plant does not expose an attitude (e.g. the Phase 0
 # stub plant): body frame aligned with world.
 _IDENTITY_QUAT = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+
+
+def _build_wind_field(params: Params, rng: RngFactory) -> WindField | None:
+    """Construct the interceptor's wind disturbance from ``params.wind`` (Role 1/6 wiring).
+
+    Returns ``None`` for the **calm** profile (zero steady wind and zero gust std) so a
+    disturbance-free run keeps the exact undisturbed dynamics and stays byte-identical to
+    the Phase 2/3 runs (the calm preset must reduce to no wind exactly — wind.py T1.6 DoD).
+    Any disturbed profile (a steady breeze and/or gusts, e.g. the ``moderate``/``gusty``
+    presets a Phase 4 wind scenario selects via ``params.wind``) yields a reproducible
+    :class:`WindField` seeded from a dedicated ``"wind"`` RNG stream, so the gust series is
+    deterministic for a fixed seed without perturbing the sensor stream (common/rng.py).
+    """
+    wind = params.wind
+    is_calm = wind.gust_std_m_s == 0.0 and not np.any(np.asarray(wind.steady_velocity_m_s))
+    if is_calm:
+        return None
+    # Only a gusty profile consumes randomness; a steady-only breeze needs no stream.
+    wind_rng = rng.stream("wind") if wind.gust_std_m_s > 0.0 else None
+    return WindField(wind, wind_rng)
 
 
 @dataclass(frozen=True)
@@ -160,6 +181,7 @@ class PipelineComponents:
         plant = MujocoPlant(
             scene_path=scene_path or DEFAULT_SCENE_PATH,
             initial_position_m=np.asarray(interceptor_position_m, dtype=np.float64),
+            wind=_build_wind_field(params, rng),
         )
         return PipelineComponents(
             trajectory=trajectory,
