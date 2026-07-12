@@ -102,7 +102,15 @@ class GuidanceParams:
     # produces a closing command (ZEM trajectory-shaping).
     time_to_go_min_s: float = 0.05
     time_to_go_max_s: float = 30.0
-    reference_closing_speed_m_s: float = 5.0
+    # Phase 3 tuning (T3.6, user-approved): lowered 5.0 -> 3.5 m/s. From rest OGL has no true
+    # closing speed, so it synthesizes t_go from this reference to shape the launch command.
+    # At 5 m/s the from-rest command over-drove the tilt bound and saturated the first ~20%
+    # of frames (the dominant term in the >5% command-saturation KPI miss). 3.5 m/s softens
+    # the launch enough to bring saturation within 5% across the static/linear suite (paired
+    # with the 45 deg tilt bound below) while still closing the farthest static target inside
+    # the < 10 s KPI; going as low as 2.5 cut saturation further but slowed the 12.4 m target
+    # past 10 s, and 1.5 made some geometries miss. See docs/phase3_progress.md (T3.6).
+    reference_closing_speed_m_s: float = 3.5
     # Augmented-ZEM (target-acceleration feed-forward) switch. OFF for Phase 2: the EKF
     # estimates *relative* acceleration (a_target - a_interceptor), so against static/
     # linear targets it mostly reflects the interceptor's own maneuver — feeding that back
@@ -115,12 +123,17 @@ class GuidanceParams:
 
 @dataclass(frozen=True)
 class LimiterParams:
-    """Command-limiter bounds (Role 4, SAFETY). Placeholders until Phase 2."""
+    """Command-limiter bounds (Role 4, SAFETY)."""
 
     # Max commandable linear acceleration magnitude [m/s^2].
     max_acceleration_m_s2: float = 30.0
-    # Max commandable tilt angle [rad] (~35 deg default).
-    max_tilt_rad: float = 0.6109
+    # Max commandable tilt angle [rad]. Phase 3 tuning (T3.7, user-approved): raised 0.6109
+    # (~35 deg) -> 0.7854 (45 deg). The horizontal acceleration authority is g*tan(max_tilt),
+    # so 35 deg capped it at ~6.87 m/s^2 and the launch/cross-range dashes clamped against it
+    # (command-saturation KPI). 45 deg raises the authority to g = 9.81 m/s^2, keeping the
+    # aggressive geometries within the <= 5% saturation KPI; 45 deg remains conservative for a
+    # quadrotor. Paired with the softened reference_closing_speed above (see phase3_progress).
+    max_tilt_rad: float = 0.7854
 
 
 @dataclass(frozen=True)

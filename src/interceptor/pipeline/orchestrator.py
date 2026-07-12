@@ -136,20 +136,23 @@ class PipelineComponents:
         )
 
     @staticmethod
-    def phase2_intercept(
+    def build_intercept(
         rng: RngFactory,
         params: Params,
         *,
+        trajectory: TargetTrajectory,
         interceptor_position_m: np.ndarray,
-        target_position_m: np.ndarray,
         scene_path: str | Path | None = None,
     ) -> PipelineComponents:
-        """Real Phase 2 wiring: MuJoCo plant + noisy sensor + EKF + OGL + control + mixer.
+        """Real interception wiring against an *arbitrary* target trajectory.
 
-        This is the closed loop the Phase 2 exit criterion exercises (static-target
-        interception). Every slot is a real implementation behind the same interface the
-        stubs satisfied, so the orchestrator itself is unchanged (Open/Closed). MuJoCo is
-        imported lazily so importing this module never requires the physics engine.
+        MuJoCo plant + noisy sensor + EKF + OGL + limiter + dual-loop control + mixer,
+        every slot a real implementation behind the same interface the stubs satisfied, so
+        the orchestrator itself is unchanged (Open/Closed). The target motion is injected as
+        a :class:`TargetTrajectory`, so the *same* closed loop flies static, linear, or any
+        other trajectory family (Phase 3 scenario runner / Phase 4 evasive targets) without
+        editing this factory. MuJoCo is imported lazily so importing this module never
+        requires the physics engine.
         """
         # Lazy import: keeps the stub path (and non-mujoco tests) free of the native dep.
         from interceptor.simulation.mujoco_plant import DEFAULT_SCENE_PATH, MujocoPlant
@@ -159,7 +162,7 @@ class PipelineComponents:
             initial_position_m=np.asarray(interceptor_position_m, dtype=np.float64),
         )
         return PipelineComponents(
-            trajectory=StaticTrajectory(np.asarray(target_position_m, dtype=np.float64)),
+            trajectory=trajectory,
             sensor=NoisyDelayedSensorModel(params.sensor, rng.stream("sensor")),
             estimator=ExtendedKalmanFilter(params.ekf),
             guidance=OptimalGuidanceLaw(params.guidance),
@@ -169,6 +172,29 @@ class PipelineComponents:
             mixer=QuadMotorMixer(),
             plant=plant,
             renderer=NullRenderer(),
+        )
+
+    @staticmethod
+    def phase2_intercept(
+        rng: RngFactory,
+        params: Params,
+        *,
+        interceptor_position_m: np.ndarray,
+        target_position_m: np.ndarray,
+        scene_path: str | Path | None = None,
+    ) -> PipelineComponents:
+        """Real Phase 2 wiring against a **static** target (thin wrapper over
+        :meth:`build_intercept`).
+
+        This is the closed loop the Phase 2 exit criterion exercises (static-target
+        interception); it is retained verbatim so existing callers/tests are unchanged.
+        """
+        return PipelineComponents.build_intercept(
+            rng,
+            params,
+            trajectory=StaticTrajectory(np.asarray(target_position_m, dtype=np.float64)),
+            interceptor_position_m=interceptor_position_m,
+            scene_path=scene_path,
         )
 
 
@@ -211,6 +237,7 @@ class StubOrchestrator:
         *,
         terminate_on_intercept: bool = False,
         capture_radius_m: float = constants.INTERCEPT_CAPTURE_RADIUS_M,
+        extra_metadata: dict | None = None,
     ) -> RunResult:
         """Execute the loop headlessly and return a :class:`RunResult`.
 
@@ -231,20 +258,25 @@ class StubOrchestrator:
             )
 
         run_dir = Path(run_dir)
+        metadata = {
+            "run_id": run_id,
+            "num_steps": num_steps,
+            "sim_hz": constants.SIM_HZ,
+            "inner_loop_hz": constants.INNER_LOOP_HZ,
+            "outer_loop_hz": constants.OUTER_LOOP_HZ,
+            "estimation_hz": constants.ESTIMATION_HZ,
+            "guidance_hz": constants.GUIDANCE_HZ,
+            "guidance_law": self._components.guidance.name,
+        }
+        # Scenario runner injects its name + resolved spec here so the snapshot fully
+        # identifies the run (reproducibility contract, Phase 3 T3.2).
+        if extra_metadata:
+            metadata.update(extra_metadata)
         snapshot_path = write_run_snapshot(
             run_dir,
             seed=self._rng.seed,
             params=self._params.to_dict(),
-            metadata={
-                "run_id": run_id,
-                "num_steps": num_steps,
-                "sim_hz": constants.SIM_HZ,
-                "inner_loop_hz": constants.INNER_LOOP_HZ,
-                "outer_loop_hz": constants.OUTER_LOOP_HZ,
-                "estimation_hz": constants.ESTIMATION_HZ,
-                "guidance_hz": constants.GUIDANCE_HZ,
-                "guidance_law": self._components.guidance.name,
-            },
+            metadata=metadata,
         )
 
         dt = 1.0 / constants.SIM_HZ
