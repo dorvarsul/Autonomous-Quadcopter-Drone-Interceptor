@@ -1,4 +1,4 @@
-"""Randomized 3D Monte-Carlo trial harness — Role 5, Phase 4 T4.4 / T4.5.
+"""Randomized 3D Monte-Carlo trial harness — Role 5.
 
 The hand-written ``scenarios/`` library probes specific *named* geometries; this harness
 instead samples the **whole threat envelope** — random 3D engagement geometry, a random
@@ -10,16 +10,16 @@ Design intent (all in service of AGENTS.md → determinism & Role-5 boundary):
 
 - **Reuse, don't reinvent.** Every sampled trial is turned into an ordinary validated
   :class:`~interceptor.analysis.scenarios.Scenario` via ``scenario_from_dict`` and flown by
-  the same ``run_scenario`` closed loop the Phase 3 suite uses. This module only *samples*
+  the same ``run_scenario`` closed loop the named scenario suite uses. This module only *samples*
   and *aggregates*; it contains no physics/estimation/guidance/control logic.
 - **Reproducible batch.** One ``master_seed`` seeds a single sampling RNG, and each trial's
   run seed is its index, so a given ``(master_seed, num_trials)`` reproduces the whole batch
   — geometry, noise, and all — byte-for-byte. The batch manifest records the master seed +
-  git hash so the dataset is traceable (T4.4 reproducibility contract).
+  git hash so the dataset is traceable (reproducibility contract).
 - **Fair, documented envelope.** The sampling ranges below are a deliberate, named threat
   distribution (a realistic mix with a hard evasive/high-speed tail), not a set cherry-picked
   to inflate the pass rate. The per-family breakdown in :class:`BatchSummary` exposes weak
-  regimes rather than hiding them (T4.5 / T4.7).
+  regimes rather than hiding them.
 """
 
 from __future__ import annotations
@@ -274,7 +274,7 @@ class BatchSummary:
     other KPIs (time, Z-overshoot, saturation) are separate acceptance criteria reported as
     aggregate compliance rates rather than folded into the per-trial success flag — so a very
     short high-speed intercept that clears the miss KPI but transiently exceeds 5% saturation
-    is a *mission success* with a filed saturation finding, not a mission failure (T4.5/T4.7).
+    is a *mission success* with a filed saturation finding, not a mission failure.
     """
 
     master_seed: int
@@ -324,7 +324,7 @@ class BatchSummary:
 
     @property
     def by_family(self) -> dict[str, tuple[int, int]]:
-        """``family -> (interceptions, trials)``, exposing weak trajectory regimes (T4.5/T4.7)."""
+        """``family -> (interceptions, trials)``, exposing weak trajectory regimes."""
         return self._breakdown(lambda r: r.family)
 
     @property
@@ -333,7 +333,7 @@ class BatchSummary:
         return self._breakdown(lambda r: r.wind_preset)
 
     def failures(self) -> list[TrialResult]:
-        """Trials that failed to intercept, for failure-mode triage (T4.7)."""
+        """Trials that failed to intercept, for failure-mode triage."""
         return [r for r in self.results if not r.kpis.miss_ok]
 
     def kpi_exceedances(self) -> list[TrialResult]:

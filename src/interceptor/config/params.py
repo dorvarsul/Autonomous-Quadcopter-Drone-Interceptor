@@ -2,11 +2,11 @@
 
 Constants in :mod:`constants` are *physical/structural* and rarely change. The values
 here are *tuning knobs* (EKF covariances, PID gains, navigation-ratio schedule,
-limiter bounds) that Roles 2-4 sweep during Phases 2-3.
+limiter bounds) that Roles 2-4 sweep.
 
 Design intent:
- - Defaults are deliberately conservative placeholders; Phase 0 wires no algorithm,
-   so nothing here is tuned yet.
+ - Defaults are the tuned baseline used across the scenario suite; a scenario YAML
+   overrides only the knobs it needs.
  - Everything is a plain dataclass so it serializes cleanly into the per-run config
    snapshot (``common.logging``) for reproducibility.
  - :func:`load_params` merges a YAML override on top of the defaults, so a scenario
@@ -31,8 +31,8 @@ class EkfParams:
 
     The EKF tracks a 9-state relative target model ``[pos(3), vel(3), acc(3)]`` in the
     world frame with a constant-acceleration process (acceleration is a random walk).
-    Defaults are conservative starting points; Role 2 tunes them in Phase 3 against the
-    Phase 1 noise/latency profiles.
+    Defaults are conservative starting points; Role 2 tunes them against the
+    sensor noise/latency profiles.
     """
 
     # Process-noise spectral densities per state group (constant-acceleration model with
@@ -41,7 +41,7 @@ class EkfParams:
     process_noise_position: float = 1.0e-3  # [m^2/s] on relative position
     process_noise_velocity: float = 1.0  # [m^2/s^3] on relative velocity
     process_noise_acceleration: float = 5.0  # [m^2/s^5] jerk PSD on relative acceleration
-    # Measurement-noise variances; default to the Phase 1 sensor 1-sigma values squared
+    # Measurement-noise variances; default to the sensor 1-sigma values squared
     # (range 0.30 m -> 0.09 m^2; angle 0.0035 rad -> ~1.2e-5 rad^2).
     measurement_noise_range_m2: float = 0.09
     measurement_noise_angle_rad2: float = 1.225e-5
@@ -72,11 +72,11 @@ class ControlParams:
     rotor-drag differential (``kQ``), which is ~100x weaker than the arm-lever roll/pitch
     torque (``kT * arm``), so a large yaw gain would demand physically impossible rotor
     differentials and saturate all four motors. Yaw does not affect interception (the quad
-    translates by tilting), so a gentle yaw hold is sufficient. Retuned in Phase 3; the
-    outer loop is algebraic (flatness) so its gains are unused placeholders for now.
+    translates by tilting), so a gentle yaw hold is sufficient. The outer loop is
+    algebraic (flatness) so its gains are unused placeholders for now.
     """
 
-    # Inner loop (~400 Hz) attitude PDs, one per body axis (ki reserved for Phase 3).
+    # Inner loop (~400 Hz) attitude PDs, one per body axis (ki reserved for future use).
     inner_roll: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
     inner_pitch: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
     inner_yaw: PidGains = field(default_factory=lambda: PidGains(kp=2.0, ki=0.0, kd=0.5))
@@ -102,21 +102,21 @@ class GuidanceParams:
     # produces a closing command (ZEM trajectory-shaping).
     time_to_go_min_s: float = 0.05
     time_to_go_max_s: float = 30.0
-    # Phase 3 tuning (T3.6, user-approved): lowered 5.0 -> 3.5 m/s. From rest OGL has no true
+    # Tuning (user-approved): lowered 5.0 -> 3.5 m/s. From rest OGL has no true
     # closing speed, so it synthesizes t_go from this reference to shape the launch command.
     # At 5 m/s the from-rest command over-drove the tilt bound and saturated the first ~20%
     # of frames (the dominant term in the >5% command-saturation KPI miss). 3.5 m/s softens
     # the launch enough to bring saturation within 5% across the static/linear suite (paired
     # with the 45 deg tilt bound below) while still closing the farthest static target inside
     # the < 10 s KPI; going as low as 2.5 cut saturation further but slowed the 12.4 m target
-    # past 10 s, and 1.5 made some geometries miss. See docs/phase3_progress.md (T3.6).
+    # past 10 s, and 1.5 made some geometries miss. See the tuning notes.
     reference_closing_speed_m_s: float = 3.5
-    # Augmented-ZEM (target-acceleration feed-forward) switch. OFF for Phase 2: the EKF
+    # Augmented-ZEM (target-acceleration feed-forward) switch. OFF by default: the EKF
     # estimates *relative* acceleration (a_target - a_interceptor), so against static/
     # linear targets it mostly reflects the interceptor's own maneuver — feeding that back
     # through the 0.5*a*t_go^2 term is positive feedback and destabilizes the loop. The
     # correct feed-forward needs the target's *absolute* acceleration (isolated using the
-    # known interceptor acceleration); that compensation is Phase 4 work for evasive
+    # known interceptor acceleration); that compensation is future work for evasive
     # targets. Until then OGL uses the classic ZEM = r + v*t_go.
     use_target_acceleration: bool = False
 
@@ -125,31 +125,31 @@ class GuidanceParams:
 class LimiterParams:
     """Command-limiter bounds (Role 4, SAFETY)."""
 
-    # Max commandable linear acceleration magnitude [m/s^2]. Phase 4 tuning (user-approved,
+    # Max commandable linear acceleration magnitude [m/s^2]. Tuning (user-approved,
     # params-only): raised 30 -> 40. The total-magnitude cap only binds on the most aggressive
     # climbing dashes (the tilt cap below governs the horizontal component first); 40 m/s^2
     # gives the fast-target/evasive engagements headroom before clamping while staying far
     # inside the airframe's ~250 m/s^2 thrust capacity, so the motor mixer never saturates in
-    # its place (i.e. this is real authority, not hidden saturation). See docs/phase4_progress.md.
+    # its place (i.e. this is real authority, not hidden saturation). See the tuning notes.
     max_acceleration_m_s2: float = 40.0
-    # Max commandable tilt angle [rad]. Phase 3 (T3.7): 0.6109 (35 deg) -> 0.7854 (45 deg).
-    # Phase 4 tuning (user-approved, params-only): 0.7854 (45 deg) -> 1.0472 (60 deg). The
+    # Max commandable tilt angle [rad]. Tuning history: 0.6109 (35 deg) -> 0.7854 (45 deg),
+    # then (user-approved, params-only): 0.7854 (45 deg) -> 1.0472 (60 deg). The
     # horizontal acceleration authority is g*tan(max_tilt): 45 deg capped it at g = 9.81 m/s^2,
-    # against which the fast/evasive Phase 4 geometries (chasing a weaving target, meeting a
+    # against which the fast/evasive geometries (chasing a weaving target, meeting a
     # 90 km/h closer) clamped for 15-30% of a short engagement -> the dominant command-saturation
     # KPI miss on the randomized batch. 60 deg raises the authority to g*tan60 = 17.0 m/s^2,
     # which lifts the randomized-batch mission-success (interception) rate to ~93% and keeps
     # saturation within KPI on the large majority of engagements. 60 deg is the aggressive-but-
     # physical end for an interceptor: the vertical thrust component cos(60) = 0.5 is still ample
-    # given the thrust headroom, and static/linear intercepts remain overshoot-free (no Phase 3
+    # given the thrust headroom, and static/linear intercepts remain overshoot-free (no
     # regression). Going further (65 deg) began to overshoot easy static targets, so 60 deg is
-    # the chosen balance. See docs/phase4_progress.md (T4.1-T4.5).
+    # the chosen balance. See the tuning notes.
     max_tilt_rad: float = 1.0472
 
 
 @dataclass(frozen=True)
 class SensorParams:
-    """Sensor noise/latency profile (Role 1, Phase 1).
+    """Sensor noise/latency profile (Role 1).
 
     These are *intentional* corruptions of the ground-truth geometry — the EKF exists
     to fight exactly this noise and delay (AGENTS.md → Role 1 must not sanitize signals
@@ -176,11 +176,11 @@ class SensorParams:
 
 @dataclass(frozen=True)
 class WindParams:
-    """Wind/gust disturbance profile (Role 1, Phase 1).
+    """Wind/gust disturbance profile (Role 1).
 
     Steady wind plus a seeded first-order Gauss-Markov (Ornstein-Uhlenbeck) gust
     process. The zero default is the *calm* preset and must reduce to undisturbed
-    dynamics exactly (T1.6 DoD).
+    dynamics exactly.
     """
 
     # Constant mean wind velocity in the world frame [m/s].

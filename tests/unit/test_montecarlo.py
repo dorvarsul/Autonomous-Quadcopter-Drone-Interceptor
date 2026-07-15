@@ -1,4 +1,4 @@
-"""Unit tests for the Monte-Carlo harness + aggregation (Phase 4 T4.4/T4.5).
+"""Unit tests for the Monte-Carlo harness + aggregation.
 
 These cover the *sampling* and *aggregation* logic without flying the pipeline (that needs
 MuJoCo and lives in ``tests/integration/test_montecarlo.py``), so they run in the fast,

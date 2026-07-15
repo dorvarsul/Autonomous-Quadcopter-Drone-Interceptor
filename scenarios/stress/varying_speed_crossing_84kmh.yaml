@@ -1,6 +1,6 @@
 # Beam-crossing high-speed pass ramping to 23.3 m/s (~83.9 km/h), just clearing the
 # 83.6 km/h KPI: the target streaks across the frontal plane, the hardest lead problem
-# (no closing-speed help from geometry). Phase 4 T4.2.
+# (no closing-speed help from geometry).
 name: varying_speed_crossing_84kmh
 seed: 0
 target_class: moving

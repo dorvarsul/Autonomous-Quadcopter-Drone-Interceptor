@@ -1,6 +1,6 @@
 # Higher-frequency juke: the target reverses lateral direction more often, so the EKF must
 # track a faster-changing LOS and OGL must re-plan aggressively. A deliberately harder
-# evasive case than the slow weave. Phase 4 T4.1.
+# evasive case than the slow weave.
 name: sinusoidal_fast_juke
 seed: 0
 target_class: moving

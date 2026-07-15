@@ -1,5 +1,5 @@
 # Constant-velocity crossing target intercepted under gusty wind: combines a moving lead
-# problem with a strong disturbance so guidance and control are stressed together. Phase 4 T4.3.
+# problem with a strong disturbance so guidance and control are stressed together.
 name: wind_linear_gusty
 seed: 0
 target_class: moving

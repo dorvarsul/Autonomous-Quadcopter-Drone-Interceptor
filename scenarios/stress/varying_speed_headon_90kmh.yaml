@@ -1,6 +1,6 @@
 # High-speed head-on shot: the target bears down the X axis ramping to 25 m/s (90 km/h),
 # certifying the MAX_TARGET_SPEED_MIN_KMH = 83.6 km/h KPI with margin. Head-on geometry
-# gives a high closing speed so the from-rest interceptor can meet it. Phase 4 T4.2.
+# gives a high closing speed so the from-rest interceptor can meet it.
 name: varying_speed_headon_90kmh
 seed: 0
 target_class: moving

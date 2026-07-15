@@ -1,5 +1,5 @@
 # Full 3D evasion: the target weaves on all three axes while drifting across — the hardest
-# geometry for the estimator/guidance pair (coupled lateral + vertical maneuver). Phase 4 T4.1.
+# geometry for the estimator/guidance pair (coupled lateral + vertical maneuver).
 name: sinusoidal_3d_spiral
 seed: 0
 target_class: moving

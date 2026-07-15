@@ -1,4 +1,4 @@
-"""KPI measurement from a run log — Role 5 (Test/Validation/KPI), Phase 3 T3.1.
+"""KPI measurement from a run log — Role 5 (Test/Validation/KPI).
 
 This module is the **single source of truth** for turning a raw ``run_log.csv`` into the
 Design Review's success metrics. Nothing here re-implements guidance/control/estimation;
@@ -15,9 +15,9 @@ The KPIs (Design Review §7; AGENTS.md → Role 5 table):
   altitude during the approach [m] (the b-penalty exists to keep this small).
 - **Command saturation** — the fraction of logged frames flagged ``saturated``. Because
   the scenario runner terminates the engagement at closest approach, this is measured over
-  the *real engagement*, not a post-intercept flyby (Phase 2 addendum).
+  the *real engagement*, not a post-intercept flyby.
 - **Max target speed handled** — the peak target speed over the run [km/h], from a finite
-  difference of the logged target positions (characterization / Phase 4 stress metric).
+  difference of the logged target positions (characterization / stress metric).
 
 The saturation fraction is measured over the terminated engagement because the scenario
 runner stops the run at closest approach; feeding this module a *non*-terminated log would
@@ -158,7 +158,7 @@ def _z_overshoot_m(trace: RunTrace, range_m: NDArray[np.float64]) -> float:
 def _max_target_speed_kmh(trace: RunTrace) -> float:
     """Peak target speed over the run [km/h] from a finite difference of its positions.
 
-    Characterization only (the ≥ 83.6 km/h KPI is a Phase 4 stress metric); a single
+    Characterization only (the ≥ 83.6 km/h KPI is a stress metric); a single
     logged frame yields 0.
     """
     if trace.time_s.size < 2:

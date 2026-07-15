@@ -1,10 +1,9 @@
 """Stub orchestrator: runs the full 6-stage pipeline end-to-end, headless.
 
 Wires Simulation -> Estimation -> Guidance -> Command Limiter -> Outer -> Inner ->
-Motor Mixer -> Simulation using injected components (Dependency Inversion). Phase 0
-runs it with the pass-through stubs to prove the loop closes deterministically; later
-phases inject real implementations behind the *same* interfaces with no orchestrator
-change.
+Motor Mixer -> Simulation using injected components (Dependency Inversion). The
+pass-through stubs prove the loop closes deterministically; real implementations
+inject behind the *same* interfaces with no orchestrator change.
 
 Determinism: the only randomness enters through the injected RNG factory; with stub
 components there is none, so a given (seed, params, step count) yields a byte-identical
@@ -72,7 +71,7 @@ from interceptor.simulation.wind import WindField
 
 # Columns of the per-step run log. Fixed order => deterministic CSV.
 # The pose columns (interceptor quaternion + target position) make a run replayable in
-# an interactive viewer (Phase 1 T1.10) without re-running the sim. They are additive:
+# an interactive viewer without re-running the sim. They are additive:
 # downstream analysis keys by column name, so appending columns is safe.
 LOG_FIELDS = (
     "step_index",
@@ -96,7 +95,7 @@ LOG_FIELDS = (
     "rotor_rpm_3",
 )
 
-# Identity orientation used when a plant does not expose an attitude (e.g. the Phase 0
+# Identity orientation used when a plant does not expose an attitude (e.g. a
 # stub plant): body frame aligned with world.
 _IDENTITY_QUAT = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
@@ -106,9 +105,9 @@ def _build_wind_field(params: Params, rng: RngFactory) -> WindField | None:
 
     Returns ``None`` for the **calm** profile (zero steady wind and zero gust std) so a
     disturbance-free run keeps the exact undisturbed dynamics and stays byte-identical to
-    the Phase 2/3 runs (the calm preset must reduce to no wind exactly — wind.py T1.6 DoD).
+    the undisturbed runs (the calm preset must reduce to no wind exactly — see wind.py).
     Any disturbed profile (a steady breeze and/or gusts, e.g. the ``moderate``/``gusty``
-    presets a Phase 4 wind scenario selects via ``params.wind``) yields a reproducible
+    presets a wind scenario selects via ``params.wind``) yields a reproducible
     :class:`WindField` seeded from a dedicated ``"wind"`` RNG stream, so the gust series is
     deterministic for a fixed seed without perturbing the sensor stream (common/rng.py).
     """
@@ -125,7 +124,7 @@ def _build_wind_field(params: Params, rng: RngFactory) -> WindField | None:
 class PipelineComponents:
     """The injected, interface-typed components wired into the loop.
 
-    Defaulting to the Phase 0 stubs keeps the call site trivial while leaving every slot
+    Defaulting to the pass-through stubs keeps the call site trivial while leaving every slot
     swappable for a real implementation (Open/Closed, Dependency Inversion).
     """
 
@@ -142,7 +141,7 @@ class PipelineComponents:
 
     @staticmethod
     def default_stubs() -> PipelineComponents:
-        """All-stub wiring used by Phase 0 and by infra tests."""
+        """All-stub wiring used by infra tests and the skeleton loop."""
         return PipelineComponents(
             trajectory=StaticTargetTrajectory(np.array([10.0, 0.0, 5.0])),
             sensor=IdealSensorModel(),
@@ -171,7 +170,7 @@ class PipelineComponents:
         every slot a real implementation behind the same interface the stubs satisfied, so
         the orchestrator itself is unchanged (Open/Closed). The target motion is injected as
         a :class:`TargetTrajectory`, so the *same* closed loop flies static, linear, or any
-        other trajectory family (Phase 3 scenario runner / Phase 4 evasive targets) without
+        other trajectory family (the scenario runner / evasive targets) without
         editing this factory. MuJoCo is imported lazily so importing this module never
         requires the physics engine.
         """
@@ -197,7 +196,7 @@ class PipelineComponents:
         )
 
     @staticmethod
-    def phase2_intercept(
+    def intercept(
         rng: RngFactory,
         params: Params,
         *,
@@ -205,11 +204,11 @@ class PipelineComponents:
         target_position_m: np.ndarray,
         scene_path: str | Path | None = None,
     ) -> PipelineComponents:
-        """Real Phase 2 wiring against a **static** target (thin wrapper over
+        """Real wiring against a **static** target (thin wrapper over
         :meth:`build_intercept`).
 
-        This is the closed loop the Phase 2 exit criterion exercises (static-target
-        interception); it is retained verbatim so existing callers/tests are unchanged.
+        This is the closed loop the static-target interception exercises; a convenience
+        wrapper that fixes the target trajectory so callers need only a target position.
         """
         return PipelineComponents.build_intercept(
             rng,
@@ -255,7 +254,7 @@ class StubOrchestrator:
         self,
         num_steps: int,
         run_dir: Path,
-        run_id: str = "phase0_stub",
+        run_id: str = "stub_pipeline",
         *,
         terminate_on_intercept: bool = False,
         capture_radius_m: float = constants.INTERCEPT_CAPTURE_RADIUS_M,
@@ -271,7 +270,7 @@ class StubOrchestrator:
         come within ``capture_radius_m`` and then starts increasing, the engagement is
         over (Role 5/6). The last logged frame is exactly that closest-approach point, so
         no physically meaningless post-intercept flyby is recorded. Off by default so the
-        Phase 0/2 fixed-duration runs and their determinism tests are unaffected.
+        fixed-duration runs and their determinism tests are unaffected.
         """
         if not self._components.renderer.is_headless:
             raise RuntimeError(
@@ -291,7 +290,7 @@ class StubOrchestrator:
             "guidance_law": self._components.guidance.name,
         }
         # Scenario runner injects its name + resolved spec here so the snapshot fully
-        # identifies the run (reproducibility contract, Phase 3 T3.2).
+        # identifies the run (reproducibility contract).
         if extra_metadata:
             metadata.update(extra_metadata)
         snapshot_path = write_run_snapshot(

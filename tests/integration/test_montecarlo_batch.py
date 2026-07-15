@@ -1,4 +1,4 @@
-"""Integration tests for the randomized Monte-Carlo batch harness (Phase 4 T4.4/T4.5).
+"""Integration tests for the randomized Monte-Carlo batch harness.
 
 Marked ``mujoco`` (each trial flies the real closed loop); headless and deterministic. These
 verify the batch is reproducible and that the delivered tuning clears the mission-success gate

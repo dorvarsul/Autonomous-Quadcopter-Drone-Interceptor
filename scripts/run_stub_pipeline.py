@@ -1,4 +1,4 @@
-"""Run the Phase 0 stub pipeline headlessly and write a logged, reproducible run.
+"""Run the stub pipeline headlessly and write a logged, reproducible run.
 
 This is the end-to-end demonstration that the full 6-stage loop closes on stubs:
 Simulation -> Estimation -> Guidance -> Limiter -> Outer -> Inner -> Mixer -> Simulation.
@@ -16,10 +16,10 @@ from interceptor.pipeline.orchestrator import StubOrchestrator
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the Phase 0 stub pipeline (headless).")
+    parser = argparse.ArgumentParser(description="Run the stub pipeline (headless).")
     parser.add_argument("--steps", type=int, default=400, help="Number of sim steps to run.")
     parser.add_argument("--seed", type=int, default=0, help="Root RNG seed (determinism).")
-    parser.add_argument("--run-id", default="phase0_stub", help="Run identifier / folder name.")
+    parser.add_argument("--run-id", default="stub_pipeline", help="Run identifier / folder name.")
     parser.add_argument(
         "--results-dir", default="results", help="Base directory for run artifacts."
     )

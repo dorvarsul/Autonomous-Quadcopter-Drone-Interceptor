@@ -1,4 +1,4 @@
-"""Rotor actuator & motor dynamics (Role 1, Phase 1 — T1.2).
+"""Rotor actuator & motor dynamics (Role 1).
 
 Maps the four rotor speeds in a :class:`MotorCommand` to the body-frame force and
 torque the physics engine applies, using the quadratic rotor model:
@@ -9,7 +9,7 @@ torque the physics engine applies, using the quadratic rotor model:
 This is the **physical actuator boundary**: incoming RPMs are clamped to
 ``[MOTOR_RPM_MIN, MOTOR_RPM_MAX]`` here (a real rotor cannot exceed its limits), and a
 clamp is reported as a saturation event rather than applied silently (AGENTS.md → fail
-loud; KPI: command saturation must stay measurable). The Phase 2 motor mixer must
+loud; KPI: command saturation must stay measurable). The motor mixer must
 respect the *same* bound so the two never disagree.
 
 Geometry is the "+" configuration in MotorCommand order

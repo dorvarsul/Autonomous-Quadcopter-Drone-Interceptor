@@ -1,1 +1,1 @@
-"""Role 3 — Guidance: PN/APN/OGL behind a common interface (stubs in Phase 0)."""
+"""Role 3 — Guidance: OGL behind a common interface (with a pass-through stub)."""

@@ -1,4 +1,4 @@
-"""Unit tests for the declarative scenario layer (Phase 3 T3.2).
+"""Unit tests for the declarative scenario layer.
 
 These cover parsing, trajectory construction, params-override merging, and fail-loud
 validation — everything *except* actually flying the pipeline (that needs MuJoCo and lives
@@ -64,7 +64,7 @@ def test_params_override_deep_merges_onto_defaults():
     """A scenario's params block overrides only the named knob; the rest keep defaults."""
     scenario = scenario_from_dict(_static_spec(params={"guidance": {"altitude_penalty_b": 0.0}}))
     assert scenario.params.guidance.altitude_penalty_b == 0.0
-    # An untouched knob keeps its default (Phase 4 tuning: limiter accel default is 40.0).
+    # An untouched knob keeps its default (limiter accel default is 40.0).
     assert scenario.params.limiter.max_acceleration_m_s2 == 40.0
 
 

@@ -1,4 +1,4 @@
-"""Declarative, seeded scenario runner — Role 5 (Test/Validation/KPI), Phase 3 T3.2.
+"""Declarative, seeded scenario runner — Role 5 (Test/Validation/KPI).
 
 A *scenario* is a YAML file that fully specifies one interception trial: the RNG seed,
 the target trajectory, the interceptor's initial state, the (optional) parameter overrides
@@ -15,7 +15,7 @@ Design intent:
   *drives* — no physics/estimation/guidance/control logic lives here (Role 5 boundary).
 - **Reproducibility contract.** Every run persists its resolved params + seed + git hash
   (via the orchestrator snapshot) and, additionally, the scenario name and its resolved
-  spec, so a result is fully traceable to the file that produced it (T3.2).
+  spec, so a result is fully traceable to the file that produced it.
 - **Fail loud on a bad spec.** Unknown trajectory types, missing keys, or a non-OGL
   guidance law raise immediately rather than silently defaulting (AGENTS.md).
 """
@@ -78,9 +78,9 @@ def _vec3(value: Any, name: str) -> np.ndarray:
 def build_trajectory(spec: dict[str, Any]) -> TargetTrajectory:
     """Map a scenario ``target:`` block to a concrete trajectory generator (reuse only).
 
-    Supported ``type`` values mirror the Phase 1 generator families. Static and linear are
-    the Phase 3 focus; sinusoidal and varying-speed are wired here too so the Phase 4
-    evasive/high-speed suites need no new plumbing (Open/Closed).
+    Supported ``type`` values mirror the trajectory generator families. Static and linear
+    cover the baseline suite; sinusoidal and varying-speed are wired here too so the
+    evasive/high-speed stress suites need no new plumbing (Open/Closed).
     """
     kind = _require(spec, "type", "target")
     if kind == "static":
@@ -168,7 +168,7 @@ def scenario_from_dict(spec: dict[str, Any]) -> Scenario:
     params = _merge_into(default_params(), override)
 
     # Optional named wind preset (calm/moderate/gusty) — a readable shorthand for the
-    # Phase 4 wind trials that keeps the preset definitions in one place (wind.py, DRY).
+    # wind trials that keeps the preset definitions in one place (wind.py, DRY).
     # It sets params.wind wholesale, so combining it with an explicit params.wind override
     # is ambiguous and fails loud rather than silently letting one win.
     preset_name = spec.get("wind_preset")

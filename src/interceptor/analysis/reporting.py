@@ -1,4 +1,4 @@
-"""KPI reporting & plots — Role 5, Phase 3 T3.8.
+"""KPI reporting & plots — Role 5.
 
 Turns a batch of :class:`~interceptor.analysis.scenarios.ScenarioResult` into a
 reproducible, human-readable report: a KPI summary table (CSV + Markdown) and per-scenario
@@ -212,7 +212,7 @@ def write_ablation_plot(
     """Overlay altitude-vs-time for two runs (e.g. b=0.1 vs b=0) to isolate the b-penalty.
 
     Both runs should share the same geometry/seed and differ only in the penalty, so any
-    divergence in the altitude traces is attributable to ``altitude_penalty_b`` (T3.8).
+    divergence in the altitude traces is attributable to ``altitude_penalty_b``.
     """
     out_path = Path(out_path)
     base = load_run_trace(baseline.run.log_path)
@@ -241,7 +241,7 @@ def _b(result: ScenarioResult) -> float:
 
 
 # --------------------------------------------------------------------------------
-# Monte-Carlo batch reporting (Phase 4 T4.6) — the final KPI dataset + plots.
+# Monte-Carlo batch reporting — the final KPI dataset + plots.
 # --------------------------------------------------------------------------------
 
 # Per-trial KPI dataset columns, fixed order for a deterministic CSV.
@@ -264,7 +264,7 @@ _BATCH_COLUMNS = (
 
 
 def write_batch_kpis_csv(summary: BatchSummary, out_path: str | Path) -> Path:
-    """Write the per-trial KPI dataset (the Phase 4 final dataset) as a deterministic CSV."""
+    """Write the per-trial KPI dataset (the final dataset) as a deterministic CSV."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as handle:
@@ -431,7 +431,7 @@ class BatchReportPaths:
 
 
 def write_batch_report(summary: BatchSummary, report_dir: str | Path) -> BatchReportPaths:
-    """Write the final Phase 4 batch report: per-trial dataset, manifest, and distribution plots."""
+    """Write the final batch report: per-trial dataset, manifest, and distribution plots."""
     report_dir = Path(report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
     kpi_csv = write_batch_kpis_csv(summary, report_dir / "batch_kpis.csv")

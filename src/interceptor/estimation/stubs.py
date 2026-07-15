@@ -1,8 +1,8 @@
-"""Pass-through Estimation stub for the Phase 0 skeleton.
+"""Pass-through Estimation stub for the skeleton loop.
 
 NOT a filter. It reconstructs a relative position from the raw measurement geometry and
 reports a fixed, honest "low confidence" quality so nothing downstream mistakes it for
-a real EKF. Phase 2 replaces it with the Extended Kalman Filter.
+a real EKF. The Extended Kalman Filter replaces it in the wired pipeline.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from interceptor.common.types import RawSensorMeasurement, TargetStateEstimate
 from interceptor.estimation.interfaces import Estimator
 
 # State dimension the real EKF will carry (rel pos 3 + rel vel 3); used to size the
-# placeholder covariance so the contract shape is already correct for Phase 2.
+# placeholder covariance so the contract shape is already correct for the real filter.
 _PLACEHOLDER_STATE_DIM = 6
 
 # Quality reported by the stub: deliberately low — this is not a real estimate.

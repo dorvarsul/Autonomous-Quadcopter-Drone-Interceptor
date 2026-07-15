@@ -1,6 +1,6 @@
 """Unit tests for the Flight Control & Actuation layer (Role 4): limiter, loops, mixer.
 
-Covers T2.4–T2.7: saturation ownership, the flatness attitude map, inner-loop step
+Covers saturation ownership, the flatness attitude map, inner-loop step
 tracking + rate separation, and mixer inversion / RPM saturation.
 """
 

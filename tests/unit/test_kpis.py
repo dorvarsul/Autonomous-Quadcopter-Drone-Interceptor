@@ -1,7 +1,7 @@
-"""Unit tests for the KPI measurement module (Phase 3 T3.1).
+"""Unit tests for the KPI measurement module.
 
 KPIs are verified against **hand-computed** synthetic traces so the arithmetic — not just
-the plumbing — is checked (T3.1 DoD). No MuJoCo: these operate on in-memory / tiny-CSV
+the plumbing — is checked. No MuJoCo: these operate on in-memory / tiny-CSV
 logs, so they run in the fast, dependency-free suite.
 """
 

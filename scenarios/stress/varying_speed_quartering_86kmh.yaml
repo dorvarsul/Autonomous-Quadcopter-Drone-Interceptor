@@ -1,6 +1,6 @@
 # Quartering (off-axis) high-speed approach ramping to 24 m/s (~86.4 km/h): the target
 # closes while also translating laterally and descending, so OGL must lead a fast, angled
-# threat rather than a pure head-on one. Phase 4 T4.2.
+# threat rather than a pure head-on one.
 name: varying_speed_quartering_86kmh
 seed: 0
 target_class: moving

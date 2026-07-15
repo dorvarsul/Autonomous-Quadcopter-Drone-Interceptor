@@ -1,10 +1,10 @@
 """Run a declarative scenario (or a directory of them) headlessly and report KPIs.
 
-This is the Phase 3 Role-5 entry point — the moving-target counterpart to
+This is the Role-5 scenario entry point — the moving-target counterpart to
 ``run_intercept.py``. It drives the *same* closed loop against any target trajectory
 declared in a scenario YAML, measures every KPI over the terminated engagement, and prints
 a pass/fail table. With ``--report`` it also writes per-scenario diagnostic plots and a KPI
-summary table to ``results/phase3/`` (see :mod:`interceptor.analysis.reporting`).
+summary table to ``results/scenarios/`` (see :mod:`interceptor.analysis.reporting`).
 
 Every run persists its resolved params + seed + git hash + scenario spec (reproducibility
 contract), so a result is fully traceable to the file that produced it. Headless and
@@ -14,7 +14,7 @@ Examples::
 
     python scripts/run_scenarios.py scenarios/static_diagonal.yaml
     python scripts/run_scenarios.py scenarios/ --report
-    python scripts/run_scenarios.py scenarios/ablation --report --report-dir results/phase3/ablation
+    python scripts/run_scenarios.py scenarios/ablation --report --report-dir results/ablation
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def _print_table(results: list[ScenarioResult]) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run declarative KPI scenarios (headless).")
     parser.add_argument("path", help="A scenario .yaml file or a directory of them.")
-    parser.add_argument("--results-dir", default="results/phase3",
+    parser.add_argument("--results-dir", default="results/scenarios",
                         help="Base directory for per-scenario run logs/snapshots.")
     parser.add_argument("--report", action="store_true",
                         help="Also write the KPI summary table + per-scenario plots.")

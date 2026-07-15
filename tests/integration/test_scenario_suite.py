@@ -1,11 +1,11 @@
-"""Phase 3 regression suite: the static/linear scenarios meet every KPI (T3.9).
+"""Regression suite: the static/linear scenarios meet every KPI.
 
 Each scenario YAML under ``scenarios/`` is flown through the real closed loop and graded by
 the KPI module. A failure names the offending KPI so a future change that regresses a metric
 is caught and localized immediately (not just "a run got worse"). Marked ``mujoco`` because
 it drives the physics engine; headless and deterministic.
 
-These lock the *user-approved Phase 3 tuning* (soft launch + 45 deg tilt authority): every
+These lock the *user-approved tuning* (soft launch + 45 deg tilt authority): every
 static and linear geometry in the spread meets miss distance, time-to-intercept, Z-overshoot,
 and command saturation. The ablation scenarios (``scenarios/ablation``) are intentionally
 off-spec controls (b = 0) and are excluded here.
@@ -36,7 +36,7 @@ def _ids(paths):
 
 @pytest.mark.parametrize("scenario_path", _SCENARIO_FILES, ids=_ids(_SCENARIO_FILES))
 def test_scenario_meets_all_kpis(scenario_path: Path, tmp_path: Path):
-    """Every declared static/linear scenario meets all four Phase 3 KPIs."""
+    """Every declared static/linear scenario meets all four KPIs."""
     scenario = load_scenario(scenario_path)
     result = run_scenario(scenario, tmp_path)
     k = result.kpis
@@ -55,7 +55,7 @@ def test_scenario_meets_all_kpis(scenario_path: Path, tmp_path: Path):
 
 
 def test_scenario_run_is_deterministic(tmp_path: Path):
-    """Re-running a scenario reproduces a byte-identical log (reproducibility, T3.2)."""
+    """Re-running a scenario reproduces a byte-identical log (reproducibility)."""
     scenario = load_scenario(_SCENARIO_DIR / "static_diagonal.yaml")
     a = run_scenario(scenario, tmp_path / "a").run.log_path
     b = run_scenario(scenario, tmp_path / "b").run.log_path
@@ -65,7 +65,7 @@ def test_scenario_run_is_deterministic(tmp_path: Path):
 def test_b_penalty_ablation_still_intercepts(tmp_path: Path):
     """The b=0 ablation control still intercepts (it is a measurement control, not off-mission).
 
-    T3.8 found Z-overshoot is negligible with or without the penalty in this control
+    Ablation analysis found Z-overshoot is negligible with or without the penalty in this control
     architecture; this guards that the ablation scenarios remain valid, flyable runs.
     """
     ablation = load_scenario(_SCENARIO_DIR / "ablation" / "static_high_b0.yaml")

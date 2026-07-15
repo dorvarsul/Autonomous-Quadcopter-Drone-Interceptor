@@ -1,6 +1,6 @@
-"""Run the Phase 2 guided interception headlessly and write a replayable, logged run.
+"""Run the guided interception headlessly and write a replayable, logged run.
 
-This is the end-to-end Phase 2 demonstration: the full 6-stage pipeline with the *real*
+This is the end-to-end demonstration: the full 6-stage pipeline with the *real*
 components — MuJoCo plant, noisy/delayed sensor, EKF, OGL, command limiter, dual-loop
 control, and motor mixer — closing on a static target. Output (pose+KPI run log + config
 snapshot) lands in ``results/<run_id>/`` and can be viewed with the replay tool::
@@ -27,7 +27,7 @@ from interceptor.pipeline.orchestrator import PipelineComponents, StubOrchestrat
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the Phase 2 guided interception (headless).")
+    parser = argparse.ArgumentParser(description="Run the guided interception (headless).")
     parser.add_argument("--target", type=float, nargs=3, default=[6.0, 0.0, 4.0],
                         metavar=("X", "Y", "Z"), help="Static target world position [m].")
     parser.add_argument("--start", type=float, nargs=3, default=[0.0, 0.0, 2.0],
@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
 
     params = load_params(args.params) if args.params else default_params()
     rng = RngFactory(args.seed)
-    components = PipelineComponents.phase2_intercept(
+    components = PipelineComponents.intercept(
         rng, params,
         interceptor_position_m=np.array(args.start, dtype=float),
         target_position_m=np.array(args.target, dtype=float),
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         terminate_on_intercept=args.terminate,
     )
 
-    # Reuse the Phase 3 KPI module as the single source of truth for miss distance / t_int.
+    # Reuse the KPI module as the single source of truth for miss distance / t_int.
     trace = load_run_trace(result.log_path)
     kpi = compute_kpis(trace, time_to_intercept_max_s=constants.T_INT_STATIC_MAX_S)
     min_range = kpi.miss_distance_m

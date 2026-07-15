@@ -1,4 +1,4 @@
-"""Unit tests for the Monte-Carlo batch report writers (Phase 4 T4.6).
+"""Unit tests for the Monte-Carlo batch report writers.
 
 Covers the deterministic per-trial KPI dataset (CSV) and the reproducibility manifest (JSON)
 without rendering plots (the plotting path is exercised by the integration batch run). These

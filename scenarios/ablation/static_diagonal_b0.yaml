@@ -1,5 +1,5 @@
 # b-penalty ablation: identical to static_diagonal but with the altitude penalty DISABLED
-# (b = 0), to isolate the penalty's effect on Z-overshoot on a 3D-diagonal geometry (T3.8).
+# (b = 0), to isolate the penalty's effect on Z-overshoot on a 3D-diagonal geometry.
 name: ablation_static_diagonal_b0
 seed: 0
 target_class: static

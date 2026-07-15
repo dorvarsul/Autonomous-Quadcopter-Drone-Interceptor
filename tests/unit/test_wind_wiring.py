@@ -1,8 +1,8 @@
-"""Unit tests for Phase 4 wind wiring (T4.3): the orchestrator's wind-field factory and the
+"""Unit tests for wind wiring: the orchestrator's wind-field factory and the
 scenario ``wind_preset`` shorthand.
 
 The wiring must satisfy two invariants: the **calm** profile reduces to *no* wind field (so
-undisturbed runs stay byte-identical to Phase 2/3), and any disturbed profile yields a
+undisturbed runs stay byte-identical to the baseline), and any disturbed profile yields a
 reproducible field seeded from a dedicated RNG stream. These run without MuJoCo — the
 orchestrator helper and scenario parser are pure Python.
 """

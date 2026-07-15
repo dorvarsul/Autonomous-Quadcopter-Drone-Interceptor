@@ -5,7 +5,7 @@ Checks, in order:
   2. Core dependencies import (mujoco, numpy, scipy, yaml, matplotlib).
   3. MuJoCo reports a version and its native binaries are resolvable on PATH.
   4. A trivial MJCF loads and steps headlessly, and one frame renders **off-screen**
-     (no GLFW window) — the headless smoke test required by Phase 0 (T0.1).
+     (no GLFW window) — the headless smoke test the automated pipeline requires.
 
 Exit code 0 means the environment is ready; non-zero (with a clear message) means it
 is not. Fully non-interactive.

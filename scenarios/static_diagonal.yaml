@@ -1,4 +1,4 @@
-# Static target on a 3D diagonal (the Phase 2 saturation reference geometry, seed 0).
+# Static target on a 3D diagonal (the saturation reference geometry, seed 0).
 name: static_diagonal
 seed: 0
 target_class: static

@@ -1,6 +1,6 @@
 # Static intercept under a moderate steady breeze + gentle gusts. Isolates control-loop
 # robustness: the disturbance force pushes the airframe, so the limiter/PID must hold the
-# intercept without blowing the saturation or miss KPIs. Phase 4 T4.3.
+# intercept without blowing the saturation or miss KPIs.
 name: wind_static_moderate
 seed: 0
 target_class: static

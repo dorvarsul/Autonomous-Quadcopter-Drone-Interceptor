@@ -1,6 +1,6 @@
 # Evasive weaving target under a moderate breeze: the compound worst case — an evading
 # target AND a disturbed interceptor. Stresses EKF tracking, OGL lead, and control robustness
-# at once. Phase 4 T4.3.
+# at once.
 name: wind_evasive_moderate
 seed: 0
 target_class: moving

@@ -77,8 +77,8 @@ class TargetStateEstimate:
     quality: float  # scalar estimate quality in [0, 1]; 1 = fully confident
     # Relative acceleration (target - interceptor), world frame [m/s^2]. Feeds OGL's
     # augmented Zero-Effort-Miss term so evasive/maneuvering targets are handled. Optional
-    # with a zero default so the Phase 0 pass-through estimator (which does not estimate
-    # acceleration) still satisfies the contract; the Phase 2 EKF fills it in.
+    # with a zero default so the pass-through estimator (which does not estimate
+    # acceleration) still satisfies the contract; the EKF fills it in.
     relative_acceleration_m_s2: NDArray[np.float64] = field(
         default_factory=lambda: np.zeros(3, dtype=np.float64)
     )
@@ -195,7 +195,7 @@ class BodyTorqueThrustCommand:
     not an attitude. A dedicated message keeps torque out of the angle-named fields of
     :class:`AttitudeReference` (Clean Code -> meaningful domain names). Torque axes follow
     the body frame convention in :mod:`common.frames` (roll about +X, pitch about +Y, yaw
-    about +Z); the mixer inverts the Phase 1 rotor model to realize them within RPM limits.
+    about +Z); the mixer inverts the rotor model to realize them within RPM limits.
     """
 
     torque_body_n_m: NDArray[np.float64]  # [roll, pitch, yaw] body torque [N*m]

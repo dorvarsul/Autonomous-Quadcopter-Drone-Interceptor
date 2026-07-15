@@ -1,6 +1,6 @@
 """Run the randomized 3D Monte-Carlo trial batch headlessly and report mission success.
 
-The Phase 4 Role-5 entry point for the **Mission Success Rate** KPI (Design Review §7): it
+The Role-5 entry point for the **Mission Success Rate** KPI (Design Review §7): it
 samples a seeded batch across the whole threat envelope (family, geometry, speed, wind),
 flies each trial through the same closed loop as the named scenarios, and prints the overall
 success rate with a per-family / per-wind breakdown. With ``--report`` it also writes the
@@ -12,7 +12,7 @@ Reproducible: a given ``--seed`` and ``--trials`` reproduce the whole batch byte
 Examples::
 
     python scripts/run_montecarlo.py --trials 100 --seed 0 --report
-    python scripts/run_montecarlo.py --trials 30 --seed 7 --results-dir results/phase4/mc
+    python scripts/run_montecarlo.py --trials 30 --seed 7 --results-dir results/montecarlo
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the randomized Monte-Carlo KPI batch.")
     parser.add_argument("--trials", type=int, default=100, help="Number of randomized trials.")
     parser.add_argument("--seed", type=int, default=0, help="Batch master seed (reproducible).")
-    parser.add_argument("--results-dir", default="results/phase4/montecarlo",
+    parser.add_argument("--results-dir", default="results/montecarlo",
                         help="Base directory for per-trial run logs/snapshots.")
     parser.add_argument("--report", action="store_true",
                         help="Also write the batch KPI dataset, manifest, and plots.")
