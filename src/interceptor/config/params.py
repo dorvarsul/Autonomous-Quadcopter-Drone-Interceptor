@@ -102,15 +102,18 @@ class GuidanceParams:
     # produces a closing command (ZEM trajectory-shaping).
     time_to_go_min_s: float = 0.05
     time_to_go_max_s: float = 30.0
-    # Tuning (user-approved): lowered 5.0 -> 3.5 m/s. From rest OGL has no true
-    # closing speed, so it synthesizes t_go from this reference to shape the launch command.
-    # At 5 m/s the from-rest command over-drove the tilt bound and saturated the first ~20%
-    # of frames (the dominant term in the >5% command-saturation KPI miss). 3.5 m/s softens
-    # the launch enough to bring saturation within 5% across the static/linear suite (paired
-    # with the 45 deg tilt bound below) while still closing the farthest static target inside
-    # the < 10 s KPI; going as low as 2.5 cut saturation further but slowed the 12.4 m target
-    # past 10 s, and 1.5 made some geometries miss. See the tuning notes.
-    reference_closing_speed_m_s: float = 3.5
+    # Tuning (user-approved): 4.25 m/s. From rest OGL has no true closing speed, so it
+    # synthesizes t_go from this reference to shape the launch command; a higher reference
+    # means a smaller t_go and a more aggressive (faster) launch. Earlier this was held down
+    # at 3.5 because an aggressive launch made the airframe overshoot in Z on same-altitude
+    # lateral dashes — but that overshoot was a *thrust/tilt-lag coupling*, not a guidance
+    # limit, and is now cancelled by the inner-loop thrust projection (see control/inner_loop
+    # thrust-projection note). With the coupling gone, the binding constraint reverts to
+    # command saturation, and 4.25 m/s keeps the worst-case baseline saturation ~2% (well
+    # inside the 5% KPI, with margin) while cutting mean time-to-intercept on the slow
+    # static/linear geometries by ~15% and holding Z-overshoot < 0.4 m. Pushing to 5.0 breaks
+    # the 5% saturation budget; below 4.0 leaves speed on the table. See the tuning notes.
+    reference_closing_speed_m_s: float = 4.25
     # Augmented-ZEM (target-acceleration feed-forward) switch. OFF by default: the EKF
     # estimates *relative* acceleration (a_target - a_interceptor), so against static/
     # linear targets it mostly reflects the interceptor's own maneuver — feeding that back

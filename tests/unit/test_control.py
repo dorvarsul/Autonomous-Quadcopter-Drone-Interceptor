@@ -107,6 +107,47 @@ def test_inner_loop_tracks_step_pitch_reference():
     assert abs(rate) < 0.05  # settled, not oscillating
 
 
+def test_inner_loop_thrust_projection_holds_weight_support_while_tilt_lags():
+    """A tilt command against a still-level body yields weight-support thrust, not excess.
+
+    The outer loop sizes thrust ``m*|f|`` assuming the target tilt is already reached. On
+    the first tick the body is still level (the tilt lags), so projecting the desired thrust
+    axis onto the actual (vertical) body axis must scale the collective back to exactly the
+    vertical weight support ``m*g`` — otherwise the surplus lifts the airframe (the Z-axis
+    overshoot on aggressive/lateral maneuvers).
+    """
+    inner = AttitudePidInnerLoop(ControlParams())
+    pitch = 0.5  # rad; f = [g*tan(pitch), 0, g], so |f| = g / cos(pitch) for unit mass
+    thrust_cmd = constants.GRAVITY_M_S2 / np.cos(pitch)
+    cmd = inner.track(AttitudeReference(0.0, pitch, 0.0, thrust_n=thrust_cmd), np.zeros(3))
+    # Projected onto the level body axis -> exactly weight support, strictly below the naive
+    # pass-through the outer loop requested.
+    np.testing.assert_allclose(cmd.thrust_n, constants.GRAVITY_M_S2, atol=1e-6)
+    assert cmd.thrust_n < thrust_cmd
+
+
+def test_inner_loop_thrust_projection_restores_full_thrust_once_settled():
+    """Once the tilt has caught up to the reference, the projection factor is 1 (full thrust)."""
+    inner = AttitudePidInnerLoop(ControlParams())
+    dt = 1.0 / constants.INNER_LOOP_HZ
+    inertia = constants.QUAD_INERTIA_IYY_KG_M2
+    target = 0.2
+    thrust_cmd = constants.GRAVITY_M_S2 / np.cos(target)
+    ref = AttitudeReference(0.0, target, 0.0, thrust_n=thrust_cmd)
+    rate, cmd = 0.0, None
+    for _ in range(1200):
+        cmd = inner.track(ref, np.array([0.0, rate, 0.0]))
+        rate += (cmd.torque_body_n_m[frames.Y] / inertia) * dt
+    assert abs(cmd.thrust_n - thrust_cmd) / thrust_cmd < 1e-3  # projection -> 1 at steady state
+
+
+def test_inner_loop_level_reference_passes_thrust_through():
+    """With no commanded tilt the projection is exactly 1, so thrust is untouched."""
+    inner = AttitudePidInnerLoop(ControlParams())
+    cmd = inner.track(AttitudeReference(0.0, 0.0, 0.0, thrust_n=12.3), np.zeros(3))
+    assert cmd.thrust_n == 12.3
+
+
 # ------------------------------------------------------------------ motor mixer
 def test_mixer_inverts_the_actuator_model():
     act = RotorActuatorModel()
