@@ -13,9 +13,13 @@ The KPIs (Design Review §7; AGENTS.md → Role 5 table):
   the caller (the scenario declares its class).
 - **Z-axis overshoot** — the largest amount the interceptor rises *above* the target
   altitude during the approach [m] (the b-penalty exists to keep this small).
-- **Command saturation** — the fraction of logged frames flagged ``saturated``. Because
-  the scenario runner terminates the engagement at closest approach, this is measured over
-  the *real engagement*, not a post-intercept flyby.
+- **Command saturation** — the fraction of logged frames flagged ``saturated``. That flag
+  is the *honest actuator-chain* flag written by the orchestrator: a frame is saturated if
+  the command limiter clamped the acceleration request **or** the motor mixer clamped a
+  rotor to an RPM limit. Counting only the limiter would hide mixer saturation on aggressive
+  attitude slews (AGENTS.md → saturation must stay measurable, not hidden). Because the
+  scenario runner terminates the engagement at closest approach, this is measured over the
+  *real engagement*, not a post-intercept flyby.
 - **Max target speed handled** — the peak target speed over the run [km/h], from a finite
   difference of the logged target positions (characterization / stress metric).
 
@@ -43,7 +47,7 @@ class RunTrace:
 
     A thin, typed view over the CSV so KPI functions never re-parse rows or assume a
     column layout. Positions are ``(N, 3)`` world-frame arrays [m]; ``saturated`` is the
-    per-frame limiter/mixer saturation flag.
+    per-frame combined actuator-chain flag (limiter OR mixer).
     """
 
     time_s: NDArray[np.float64]

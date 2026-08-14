@@ -91,6 +91,7 @@ class AttitudePidInnerLoop:
         self._dt = 1.0 / float(inner_loop_hz)
         self._kp = np.array([p.inner_roll.kp, p.inner_pitch.kp, p.inner_yaw.kp], dtype=np.float64)
         self._kd = np.array([p.inner_roll.kd, p.inner_pitch.kd, p.inner_yaw.kd], dtype=np.float64)
+        self._max_angular_accel = float(p.max_angular_accel_rad_s2)
         self._inertia = np.array(
             [
                 constants.QUAD_INERTIA_IXX_KG_M2,
@@ -121,6 +122,12 @@ class AttitudePidInnerLoop:
             dtype=np.float64,
         )
         angular_accel = self._kp * error - self._kd * rates
+        # Clamp to the rotors' angular-acceleration authority so a large-angle step becomes a
+        # rate-limited slew rather than an infeasible torque spike the mixer would have to
+        # clamp (actuator saturation). Scale the whole vector so the slew axis is preserved.
+        accel_mag = float(np.linalg.norm(angular_accel))
+        if accel_mag > self._max_angular_accel:
+            angular_accel = angular_accel * (self._max_angular_accel / accel_mag)
         torque = self._inertia * angular_accel
 
         # Thrust projection: scale collective thrust by how well the *desired* thrust axis

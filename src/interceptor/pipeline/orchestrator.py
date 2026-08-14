@@ -89,6 +89,8 @@ LOG_FIELDS = (
     "estimate_range_m",
     "accel_cmd_norm_m_s2",
     "saturated",
+    "limiter_saturated",
+    "mixer_saturated",
     "rotor_rpm_0",
     "rotor_rpm_1",
     "rotor_rpm_2",
@@ -406,6 +408,8 @@ class StubOrchestrator:
         accel_norm = (
             float(np.linalg.norm(limited.acceleration_m_s2)) if limited is not None else 0.0
         )
+        limiter_saturated = bool(limited.saturated) if limited is not None else False
+        mixer_saturated = bool(motor_command.saturated)
         quat = np.asarray(interceptor_quat, dtype=np.float64)
         return {
             "step_index": tick.step_index,
@@ -422,7 +426,14 @@ class StubOrchestrator:
             "target_z_m": float(target_pos[frames.Z]),
             "estimate_range_m": float(estimate.range_m) if estimate is not None else 0.0,
             "accel_cmd_norm_m_s2": accel_norm,
-            "saturated": bool(limited.saturated) if limited is not None else False,
+            # Command-saturation KPI flag: the actuator chain saturated this step if EITHER
+            # the limiter clamped the acceleration request OR the mixer clamped a rotor to an
+            # RPM limit. Counting only the limiter would hide mixer saturation on aggressive
+            # attitude slews (AGENTS.md → saturation must stay measurable). Per-stage flags are
+            # logged alongside for attribution.
+            "saturated": limiter_saturated or mixer_saturated,
+            "limiter_saturated": limiter_saturated,
+            "mixer_saturated": mixer_saturated,
             "rotor_rpm_0": float(motor_command.rotor_rpm[0]),
             "rotor_rpm_1": float(motor_command.rotor_rpm[1]),
             "rotor_rpm_2": float(motor_command.rotor_rpm[2]),
