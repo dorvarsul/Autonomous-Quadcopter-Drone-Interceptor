@@ -130,6 +130,11 @@ the `run_montecarlo.py` command above:
 Interception by target family: static 21/21, linear 32/32, sinusoidal 34/35, varying-speed 8/12.
 Wind robustness: 94% calm / 100% moderate / 93% gusty.
 
+On the named scenario suites: **11/11** static/linear geometries meet every KPI (miss
+0.003–0.037 m), and **9/11** evasive/high-speed/wind stress probes do — both stress failures
+are saturation-only breaches (`sinusoidal_fast_juke`, `varying_speed_crossing_84kmh`); every
+stress scenario still intercepts inside the 1.05 m miss KPI.
+
 The interceptor tracks, navigates toward, and intercepts static, linear, **evasive (weaving)**,
 and **high-speed (to 90 km/h)** targets, and holds up under wind/gust disturbance — all with the
 Classical Hierarchical pipeline (no DRL).
