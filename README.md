@@ -115,19 +115,33 @@ config+seed+git-hash snapshot for reproducibility.
 
 ## Performance
 
-Over a seeded randomized 3D Monte-Carlo batch:
+Canonical seeded randomized 3D Monte-Carlo batch (100 trials, master seed 0) — reproduce with
+the `run_montecarlo.py` command above:
 
-| Metric | Target | Result |
-| :--- | :--- | :--- |
-| Mission Success Rate (interception) | ≥ 90% | **93%** |
-| Max Target Speed intercepted | ≥ 83.6 km/h | **89.7 km/h** |
-| Z-Axis Overshoot | ≤ 0.5 m | 95% compliance (median ≈ 0.02 m) |
-| Wind robustness (calm/moderate/gusty) | — | 92% / 96% / 93% interception |
+| Metric | Target | Result | |
+| :--- | :--- | :--- | :-: |
+| Mission Success Rate (interception) | ≥ 90% | **95%** | ✅ |
+| Max Target Speed intercepted | ≥ 83.6 km/h | **89.7 km/h** | ✅ |
+| Miss Distance `R_miss` | ≤ 1.05 m | 95% compliance | ✅ |
+| Z-Axis Overshoot | ≤ 0.5 m | 98% compliance (median ≈ 0.02 m) | ✅ |
+| Time-to-Intercept | Static < 10 s / moving < 20 s | 95% compliance | ✅ |
+| Command Saturation | ≤ 5% of flight time | 77% compliance | ❌ |
+
+Interception by target family: static 21/21, linear 32/32, sinusoidal 34/35, varying-speed 8/12.
+Wind robustness: 94% calm / 100% moderate / 93% gusty.
 
 The interceptor tracks, navigates toward, and intercepts static, linear, **evasive (weaving)**,
 and **high-speed (to 90 km/h)** targets, and holds up under wind/gust disturbance — all with the
-Classical Hierarchical pipeline (no DRL). The residual **command-saturation** tail on very short
-high-speed intercepts is characterized and filed as a known finding.
+Classical Hierarchical pipeline (no DRL).
+
+**Known limitation — command saturation.** 23% of trials exceed the 5% saturation budget:
+85+ km/h crossing targets intercepted from rest in ~2 s, where the engagement ends before the
+airframe finishes accelerating. The metric counts the **whole actuator chain** (command limiter
+**or** motor mixer) — an earlier limiter-only version reported a flattering 74% while the true
+figure was ~40%. Fixing the measurement, then the physics (70° tilt cap, inner-loop
+angular-acceleration clamp, attitude-priority mixer), brought it to 77%. Closing the remainder
+needs adaptive-authority guidance logic, which is out of scope; see
+[`docs/phase4_progress.md`](./docs/phase4_progress.md) for the finding.
 
 ## Run the tests (headless, non-interactive)
 
