@@ -22,32 +22,84 @@ lives, and how its Definition of Done was verified.
 
 ---
 
+## Addendum — F4-1 resolved (branch `fix/f4-1-saturation-tail`)
+
+> The F4-1 command-saturation finding filed below has since been worked. Investigating it
+> **overturned two of this report's assumptions**, so the numbers in the tables further down
+> are the Phase-4-era measurements and are superseded by the honest ones here.
+
+**Finding 1 — the command-saturation KPI was undercounting.** The `saturated` flag written to
+the run log counted **only the command limiter**; motor-mixer (actuator) saturation was logged
+loudly but never counted, nor even stored as a column. So the *airframe* could be saturated
+while the KPI stayed green — the "hidden saturation" AGENTS.md forbids. Concretely,
+`varying_speed_headon_90kmh` **passed at 4.6%** on the old metric but was truly **15.7%**
+saturated (almost all in the mixer). The KPI now counts **limiter OR mixer** (orchestrator
+`_log_row`; `MotorCommand.saturated`), with per-stage `limiter_saturated` / `mixer_saturated`
+columns for attribution. This makes the reported number *worse but honest*: the true baseline
+saturation compliance over the randomized batch was **~40%**, not the 74% below.
+
+**Finding 2 — the saturation was not a launch transient** (as the F4-1 note below assumed). On
+the hard short engagements it is (a) **mid-course horizontal pinning** against the tilt cap and
+(b) **mixer min-clamping**: at low collective thrust the allocation drives a rotor below 0 RPM
+to make roll/pitch torque, even though the rotors sit at only ~5–7k of 25k RPM.
+
+**Fix (three parts, all verified no-miss-regression):**
+1. **Honest measurement** — saturation KPI = limiter ∪ mixer (above).
+2. **`max_tilt_rad` 60° → 70°** — the thrust-projection commit removed the Z-overshoot that
+   made Phase 4 reject >60°, so the extra horizontal authority (`g·tan70`=27 vs 17 m/s²) is now
+   free of the static-overshoot side effect (verified unchanged). Plus a new inner-loop
+   **angular-acceleration clamp** (`max_angular_accel_rad_s2`=70, the hover-feasible ceiling) so
+   a large slew is rate-limited instead of demanding infeasible torque.
+3. **Attitude-priority motor mixer** — when the allocation would drive a rotor below 0 N, the
+   mixer now raises the collective uniformly (preserving every torque differential) instead of
+   clipping the rotor, spending the large RPM headroom to keep attitude authority. Saturation is
+   flagged only for the *true* actuator ceiling (a rotor over MAX RPM).
+
+**Result (honest metric, canonical 100-trial batch, seed 0):**
+
+| Metric | Old Phase 4 (limiter-only) | Honest baseline | **After F4-1 fix** |
+| :--- | :--- | :--- | :--- |
+| Mission success (interception) | 93% | ~92% | **95%** |
+| Command-saturation compliance | 74% *(undercounted)* | ~40% *(honest)* | **77% (honest)** |
+| Z-overshoot compliance | 95% | — | **98%** |
+| Static/linear suite | 11/11 | — | **11/11 (honest)** |
+
+The residual ~23% saturation is the genuine physical tail: 85+ km/h crossing/quartering targets
+intercepted from rest in ~2 s (e.g. `varying_speed_crossing_84kmh` fell 40.2% → 5.8%). That is a
+real actuator-authority edge, honestly reported, not a measurement artifact. `pytest` 221 passed;
+`ruff` clean.
+
+---
+
 ## How to reproduce the verification
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 $env:PATH = "C:\Dev\Libraries\mujoco\bin;$env:PATH"   # so mujoco.dll / glfw3.dll resolve
 
-pytest                         # 208 passed (up from 178; +30 Phase 4 tests)
+pytest                         # 221 passed (208 at Phase 4 close; +13 from the F4-1 fix)
 ruff check src tests scripts   # All checks passed
 
 # Named stress probes (evasive / high-speed / wind), headless KPI table:
-python scripts/run_scenarios.py scenarios/phase4 --results-dir results/phase4
+python scripts/run_scenarios.py scenarios/stress --results-dir results/stress
 
 # The randomized 3D Monte-Carlo mission-success batch + final report/plots:
-python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/phase4/montecarlo
-#   -> results/phase4/montecarlo/{batch_kpis.csv, batch_manifest.json, batch_distributions.png}
+python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/montecarlo
+#   -> results/montecarlo/{batch_kpis.csv, batch_manifest.json, batch_distributions.png}
 ```
 
 **Observed results (this machine):**
 
-- `pytest` → **208 passed** in ~30 s. New: Monte-Carlo sampling/aggregation unit tests, wind-
-  wiring unit tests, batch-report writer tests, the Phase 4 named-scenario regression, and a
-  reproducible Monte-Carlo integration batch.
+- `pytest` → **221 passed**. New in Phase 4: Monte-Carlo sampling/aggregation unit tests, wind-
+  wiring unit tests, batch-report writer tests, the stress named-scenario regression, and a
+  reproducible Monte-Carlo integration batch; the F4-1 fix added mixer/limiter saturation and
+  angular-accel-clamp coverage.
 - `ruff check` → **All checks passed**.
-- **Canonical batch** (seed 0, 100 randomized 3D trials): **mission success 93/100 = 93.0%**,
-  max intercepted target speed **89.7 km/h**, per-KPI compliance below. A fixed
-  `(master_seed, num_trials)` reproduces the batch byte-for-byte.
+- **Canonical batch** (seed 0, 100 randomized 3D trials), on the F4-1 fix: **mission success
+  95/100 = 95.0%**, max intercepted target speed **89.7 km/h**, saturation compliance 77%
+  (honest limiter ∪ mixer metric). A fixed `(master_seed, num_trials)` reproduces the batch
+  byte-for-byte. *The Phase-4-era numbers in the tables below (93% / 74%) predate the
+  Addendum's corrections and are kept for the record.*
 
 ### Final KPI acceptance table
 
@@ -81,12 +133,12 @@ flat across calm/moderate/gusty.
 ## Exit criteria checklist (from phase4.md)
 
 - [x] Sinusoidal (evasive), varying-speed (to 90 km/h), and wind/gust scenarios each run and
-      are measured against the KPI table (`scenarios/phase4/`, T4.1–T4.3).
+      are measured against the KPI table (`scenarios/stress/`, T4.1–T4.3).
 - [x] Randomized 3D Monte-Carlo harness runs a statistically meaningful seeded batch
       (`analysis/montecarlo.py`, `scripts/run_montecarlo.py`, T4.4).
 - [x] Headline KPIs met: mission success ≥ 90% (93%), max target speed ≥ 83.6 km/h (89.7),
       Z-overshoot ≤ 0.5 m (95% compliance). Saturation tail filed as a finding (T4.7).
-- [x] Final KPI dataset, manifest, and plots generated to `results/phase4/` (T4.6).
+- [x] Final KPI dataset, manifest, and plots generated to `results/montecarlo/` (T4.6).
 - [x] A reproducibility package (seed + config + git hash per run and per batch) regenerates
       the dataset from configs + seeds alone (T4.8).
 
@@ -117,7 +169,7 @@ still sees limited acceleration; the target is still injected as a `TargetTrajec
 ## Task-by-task
 
 ### T4.1 — Sinusoidal (evasive) trials ✅  (Role 5)
-- **`scenarios/phase4/sinusoidal_*.yaml`** — lateral weave, vertical bob, fast juke, and a
+- **`scenarios/stress/sinusoidal_*.yaml`** — lateral weave, vertical bob, fast juke, and a
   full 3D spiral. All four **intercept**; `sinusoidal_vertical_bob` and `sinusoidal_3d_spiral`
   meet every KPI. `sinusoidal_fast_juke` intercepts (miss 0.32 m) but breaches saturation
   (11.8%) chasing the high-frequency reversal; `sinusoidal_lateral_weave` is a near-miss
@@ -126,7 +178,7 @@ still sees limited acceleration; the target is still injected as a `TargetTrajec
   short-engagement regime. ✔
 
 ### T4.2 — Varying-speed trials up to 90 km/h ✅  (Role 5)
-- **`scenarios/phase4/varying_speed_*.yaml`** — head-on (peak 25 m/s = 90 km/h), quartering
+- **`scenarios/stress/varying_speed_*.yaml`** — head-on (peak 25 m/s = 90 km/h), quartering
   (24 m/s), and beam-crossing (23.3 m/s) high-speed ramps. All intercept within the miss KPI.
   The **randomized batch certifies the requirement**: the fastest target intercepted within
   `R_miss` reached **89.7 km/h**, clearing the 83.6 km/h KPI. Beyond ~85 km/h with an off-axis
@@ -135,7 +187,7 @@ still sees limited acceleration; the target is still injected as a `TargetTrajec
 - **DoD:** documented max intercept speed ≥ 83.6 km/h; degradation beyond it recorded. ✔
 
 ### T4.3 — Wind & gust robustness trials ✅  (Role 5 measure → Role 4)
-- **`scenarios/phase4/wind_*.yaml`** — static/linear/evasive engagements under the `moderate`
+- **`scenarios/stress/wind_*.yaml`** — static/linear/evasive engagements under the `moderate`
   and `gusty` presets. All meet every KPI. Across the Monte-Carlo batch, interception under
   gusty (93%) and moderate (96%) wind matches calm (92%): with the documented lumped drag
   coefficient the disturbance is a gentle bias the dual-loop controller absorbs.
@@ -168,7 +220,7 @@ still sees limited acceleration; the target is still injected as a `TargetTrajec
   headline verdict), and `batch_distributions.png` (miss-distance histogram, miss-vs-speed
   scatter with the KPI lines, interception-by-family bar, saturation histogram). All headless
   (matplotlib **Agg**).
-- **DoD:** a single authoritative report in `results/phase4/` summarizes final performance
+- **DoD:** a single authoritative report in `results/montecarlo/` summarizes final performance
   faithfully, surfacing the saturation KPI that still has a tail. ✔
 
 ### T4.7 — Failure-mode analysis & findings ✅  (Role 5 → owning roles)
@@ -176,7 +228,7 @@ Triaged residual failures from the canonical batch (reproducible by seed + trial
 
 | Finding | Regime | Owning role | Note |
 | :--- | :--- | :--- | :--- |
-| **F4-1 Saturation on short high-speed intercepts** | fast `varying_speed` / fast `sinusoidal` intercepting in < 2 s | Role 3/4 | The from-rest launch transient is a fixed-duration burst; over a ~1 s engagement it is a large *fraction*, so the ≤ 5% KPI is exceeded even though the intercept is clean. Proper fix is an **adaptive-authority / launch-shaping** refinement (guidance/limiter logic) — out of scope for this params-only pass. |
+| **F4-1 Saturation on short high-speed intercepts** ✅ *resolved — see the Addendum above* | fast `varying_speed` / fast `sinusoidal` intercepting in < 2 s | Role 3/4 | ~~The from-rest launch transient is a fixed-duration burst…~~ **Correction (F4-1 fix):** the saturation is *not* a launch transient — it is mid-course tilt-cap pinning plus motor-mixer min-clamping, and the KPI was undercounting by ignoring the mixer. Fixed via honest limiter∪mixer counting, 70° tilt + an inner-loop angular-accel clamp, and an attitude-priority mixer; honest batch saturation compliance 40% → 77%. |
 | **F4-2 Fast off-axis misses** | `varying_speed` > ~85 km/h with crossing/quartering component | Role 3 | A from-rest interceptor cannot lead the fastest strongly-crossing targets; this is the physical degradation edge, not a defect. A **target-acceleration feed-forward (augmented ZEM)** is the candidate guidance improvement (explicitly deferred). |
 | **F4-3 Far-static time budget** | static targets beyond ~12 m | Role 3 | The 10 s static KPI is tight from rest at long range; interception still succeeds, only the time metric slips. |
 - Role 5 did **not** edit any other layer's logic; findings are handed off with reproduction
@@ -239,13 +291,14 @@ passes 11/11 with the new tuning — no regression.**
 
 ## Deliverables produced
 
-- `scenarios/phase4/`: 4 sinusoidal + 3 varying-speed + 4 wind declarative YAMLs.
+- `scenarios/stress/`: 4 sinusoidal + 3 varying-speed + 4 wind declarative YAMLs.
 - `analysis/montecarlo.py` (harness + aggregation); `scripts/run_montecarlo.py`.
 - `analysis/reporting.py`: batch KPI CSV, manifest, and distribution-plot writers.
 - Wind wiring in `pipeline/orchestrator.py`; `wind_preset` shorthand in `analysis/scenarios.py`.
 - Tuned `config/params.py` (`max_tilt_rad` 45°→60°, `max_acceleration_m_s2` 30→40), each with
   an inline rationale referencing this report.
-- Final dataset/manifest/plots in `results/phase4/`.
+- Final dataset/manifest/plots in `results/montecarlo/` (named suites in `results/scenarios/`
+  and `results/stress/`).
 - New tests (**+30**; 178 → 208): `tests/unit/test_montecarlo.py`,
   `tests/unit/test_wind_wiring.py`, `tests/unit/test_batch_reporting.py`,
   `tests/integration/test_phase4_scenarios.py`, `tests/integration/test_montecarlo_batch.py`.

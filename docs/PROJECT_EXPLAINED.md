@@ -139,9 +139,9 @@ recover a clean, trustworthy picture of the target's motion.
 
 ### 2.7 Radians
 
-Angles here are in **radians**, not degrees. π radians = 180°. So 60° ≈ 1.047 radians,
-which you'll see as `1.0472` in the code (the maximum tilt, raised from 45° in Phase 4 to
-give the interceptor more authority against fast, evasive targets).
+Angles here are in **radians**, not degrees. π radians = 180°. So 70° ≈ 1.222 radians,
+which you'll see as `1.2217` in the code (the maximum tilt, raised in stages to 45° → 60°
+→ 70° to give the interceptor more authority against fast, evasive targets).
 
 ---
 
@@ -551,13 +551,16 @@ So `time_to_go` is carefully conditioned:
 
 - If genuinely closing, use `range / closing_speed`.
 - If closing speed is ~0 (static target or a from-rest launch), synthesize a `t_go` from a
-  **reference closing speed** (default 3.5 m/s) so guidance still produces a sensible
+  **reference closing speed** (default 4.25 m/s) so guidance still produces a sensible
   "start accelerating toward it" command.
 - **Clamp** the result to `[0.05 s, 30 s]` to bound the terminal blow-up.
 
-That 3.5 m/s reference was **tuned in Phase 3** (down from 5.0): too high and the launch
-command was so aggressive it saturated the motors in the first 20% of flight; too low and
-the farthest target wasn't reached in time. It's a documented trade-off.
+That reference is a documented trade-off: too high and the launch command is so aggressive it
+saturates the motors in the first 20% of flight; too low and the farthest target isn't
+reached in time. It was **tuned down 5.0 → 3.5 in Phase 3** when the launch was saturating,
+then **back up to 4.25** once thrust projection (Part 10.2) removed the Z-overshoot that the
+aggressive launch had been causing — worth ~15% off time-to-intercept on the slow from-rest
+static and linear geometries.
 
 ### 8.4 The lag-aware navigation ratio
 
@@ -625,12 +628,13 @@ without touching any caller — but per project scope, **OGL is the sole law**.
 [`control/command_limiter.py`](../src/interceptor/control/command_limiter.py).
 
 Guidance can ask for anything — including accelerations the drone physically can't
-produce. The limiter is the **single place** that clamps the request to something safe,
-and the single place that **measures saturation**. Two bounds:
+produce. The limiter is the **single place** that clamps the *acceleration request*, and
+one of the two places that **report saturation** (the other is the motor mixer, Part 11 —
+see the note below). Two bounds:
 
 - **Tilt limit.** Since horizontal acceleration comes only from tilting, the maximum
-  horizontal acceleration is `g · tan(max_tilt)`. With the Phase-4-tuned max tilt of 60°
-  (1.0472 rad), that's `9.81 · tan(60°) ≈ 17.0 m/s²`. A larger horizontal request is
+  horizontal acceleration is `g · tan(max_tilt)`. With the tuned max tilt of 70°
+  (1.2217 rad), that's `9.81 · tan(70°) ≈ 27.0 m/s²`. A larger horizontal request is
   scaled back to this cap.
 - **Total magnitude limit.** The overall acceleration magnitude is capped at
   `max_acceleration` (40 m/s²) to protect the rotors.
@@ -638,18 +642,29 @@ and the single place that **measures saturation**. Two bounds:
 Every clamp is **reported**: a `saturated` flag plus how much acceleration was removed,
 and it's logged with a warning. Why so careful? Because **"command saturation ≤ 5% of
 flight time" is a graded KPI** — being pinned at the limit means you've lost control
-authority, and the project measures exactly how often that happens. Concentrating all
-clamping here (and nowhere else) means saturation is counted in exactly one place.
+authority, and the project measures exactly how often that happens.
 
-That tilt limit has been raised twice, each with sign-off: **35° → 45° in Phase 3** (at 35°
-the horizontal authority was only ~6.87 m/s² and cross-range dashes kept hitting it), then
-**45° → 60° in Phase 4** (at 45° = a full `g`, chasing weaving and 90 km/h targets still
+> **The saturation KPI counts the whole actuator chain, not just this stage.** Clamping an
+> acceleration request here is one way to run out of authority; the motor mixer hitting a
+> real rotor RPM limit is another, and it is just as much a loss of control. An earlier
+> version of the KPI counted *only* the limiter, which let the airframe be saturated while
+> the metric stayed green — precisely the hidden saturation `AGENTS.md` forbids. The KPI is
+> now **limiter OR mixer** (Part 15.1), with per-stage columns in the run log for
+> attribution. The honest number is worse and correct.
+
+That tilt limit has been raised three times, each with sign-off: **35° → 45° in Phase 3** (at
+35° the horizontal authority was only ~6.87 m/s² and cross-range dashes kept hitting it),
+then **45° → 60° in Phase 4** (at 45° = a full `g`, chasing weaving and 90 km/h targets still
 clamped for 15–30% of a short engagement — the dominant saturation-KPI miss on the randomized
-batch). 60° raises horizontal authority to ~17 m/s², which lifted randomized-batch mission
-success from ~57% to **93%**; the total-magnitude cap was raised 30 → 40 m/s² at the same
-time. 60° is the aggressive-but-physical end for an interceptor — going further (65°) began to
-*overshoot* easy static targets. The airframe's ~250 m/s² thrust capacity means these limits
-are real authority, not saturation hidden in the motors.
+batch), then **60° → 70°** once the honest metric exposed how much of the remaining
+saturation was mid-course pinning against the tilt cap. 70° raises horizontal authority to
+~27 m/s²; the total-magnitude cap was raised 30 → 40 m/s² along the way.
+
+Going past 60° was originally rejected because it *overshot* easy static targets — but that
+overshoot turned out to be a tilt-lag artifact in the thrust sizing, not a consequence of the
+tilt cap itself. Once **thrust projection** (Part 10.2) removed it, the extra authority came
+for free: static Z-overshoot was verified unchanged at 70°. The airframe's ~250 m/s² thrust
+capacity means these limits are real authority, not saturation hidden in the motors.
 
 ---
 
@@ -732,8 +747,36 @@ weak rotor-drag differential, so a big yaw gain would demand impossible rotor im
 and saturate all four motors — and since yaw doesn't help interception anyway, a gentle
 yaw hold is all that's needed.
 
+Two refinements sit on top of that PD law, both of them consequences of taking the tilt lag
+seriously:
+
+**Angular-acceleration clamp.** A large attitude error (a hard reversal against a weaving
+target) makes the P term demand an angular acceleration the rotors cannot deliver. Left
+alone, that becomes a torque spike the mixer has to clip — actuator saturation. So the
+commanded angular acceleration is capped at `max_angular_accel_rad_s2` (70 rad/s², the
+hover-feasible ceiling for this airframe), scaling the whole vector so the **slew axis is
+preserved**. A big slew becomes a rate-limited turn instead of an infeasible demand.
+
+**Thrust projection (tilt-lag compensation).** The outer loop sizes collective thrust as
+`m·|f|` assuming the body is *already* pointing along `f`. It isn't — the tilt lags, and
+during that lag the full thrust magnitude is still pointing mostly *up*, so the surplus
+briefly lifts the airframe. On a same-altitude lateral dash this showed up as ~0.48 m of
+Z-overshoot, right at the 0.5 m KPI edge, and the altitude penalty `b` cannot fix it (the
+guidance Z-command is ~0 there — it's a control artifact, not a guidance error). The fix is
+standard geometric control: scale the collective by the **projection of the desired thrust
+axis onto the actual body +Z**,
+
+```
+thrust = m·|f| · clip(dot(desired_axis, actual_body_z), 0, 1)
+```
+
+so the *realized vertical* force stays ≈ the commanded one through the lag, and the term
+becomes a no-op (projection → 1) once the tilt catches up. The inner loop already holds the
+actual attitude, so this needs no new data and crosses no contract. It cut `static_lateral`
+Z-overshoot 0.476 → 0.373 m — and, less obviously, it is what made the 70° tilt cap safe.
+
 The output is a `BodyTorqueThrustCommand`: the three torques (roll/pitch/yaw) the body
-should generate, plus the collective thrust passed through from the outer loop.
+should generate, plus the projected collective thrust.
 
 ---
 
@@ -760,10 +803,37 @@ That's four equations in four unknowns (`f_front, f_right, f_back, f_left`). The
 solves this linear system for the four thrusts, then inverts `thrust = kT·rpm²` to get
 `rpm = √(f / kT)`.
 
-Then the **hard physical limit**: RPMs are clamped to `[0, 25000]`. If a solution demands
-a *negative* thrust (impossible — a rotor can't push down) or exceeds max RPM, the mixer
-clamps and **logs a saturation warning**. It never silently exceeds the actuator bounds.
-The four resulting RPMs go back to the plant, closing the loop.
+Then the **hard physical limit**: RPMs are clamped to `[0, 25000]`. A solution that exceeds
+max RPM is the true actuator ceiling — the mixer clamps, **logs a saturation warning**, and
+flags the step as saturated. It never silently exceeds the actuator bounds.
+
+### 11.1 Attitude-priority allocation
+
+The *other* failure — a solution demanding **negative** thrust from a rotor (impossible; a
+rotor can't push down) — deserves a smarter answer than clipping. It happens at **low
+collective thrust**: when the drone is barely holding altitude but wants a hard roll, the
+torque differential the mixer must produce is larger than the average thrust it has to
+distribute, so one rotor goes below zero. Clipping it there silently destroys the torque
+differential — the attitude command is quietly not executed — and this was a dominant source
+of real saturation on aggressive slews.
+
+The key observation: in that situation the rotors are running at only ~5–7k of 25k RPM.
+There is enormous headroom above, and none below. So instead of clipping, the mixer **raises
+the collective uniformly** until the minimum rotor reaches 0:
+
+```
+if min(thrusts) < 0:  thrusts += |min(thrusts)|
+```
+
+Adding the same amount to all four rotors leaves **every torque differential exactly
+unchanged** (roll/pitch/yaw are all *differences* of rotor thrusts) — so the attitude command
+survives intact. The cost is a small, transient thrust surplus, which the outer loop's next
+correction absorbs. Attitude authority is prioritized over instantaneous thrust accuracy,
+spending the RPM headroom that was going unused.
+
+Because this path no longer loses authority, it is **no longer flagged as saturation** — only
+the genuine ceiling (a rotor over MAX RPM) is. The four resulting RPMs go back to the plant,
+closing the loop.
 
 ---
 
@@ -906,17 +976,25 @@ Success is defined by six measured metrics, each with a target (with a 5% margin
 | **Miss distance** `R_miss` | ≤ 1.05 m | Closest the interceptor got. A "hit" if within this. |
 | **Time-to-intercept** | Static < 10 s, Moving < 20 s | How quickly it closed. |
 | **Z-axis overshoot** | ≤ 0.5 m | How far it flew *past* the target's altitude. |
-| **Command saturation** | ≤ 5% of flight time | Fraction of time pinned at a physical limit. |
+| **Command saturation** | ≤ 5% of flight time | Fraction of time pinned at a physical limit — **limiter OR motor mixer**. |
 | **Max target speed** | ≥ 83.6 km/h | Fastest target it can still defeat. |
 | **Mission success rate** | ≥ 90% | Fraction of randomized trials that hit (Phase 4). |
 
 ### 15.2 KPI measurement: [`kpis.py`](../src/interceptor/analysis/kpis.py)
 
 The **single source of truth** for turning a raw `run_log.csv` into graded metrics. It
-never re-runs physics — it only *measures* a recorded run. Notable subtlety: **Z-overshoot
-is measured sign-aware** — for a climbing intercept it's how far the interceptor rose
-*above* the target; for a descending one, how far it sank *below*. This fixed a bug where a
-descending approach counted its benign initial altitude gap as huge "overshoot."
+never re-runs physics — it only *measures* a recorded run. Two subtleties worth knowing:
+
+- **Z-overshoot is measured sign-aware** — for a climbing intercept it's how far the
+  interceptor rose *above* the target; for a descending one, how far it sank *below*. This
+  fixed a bug where a descending approach counted its benign initial altitude gap as huge
+  "overshoot."
+- **Command saturation counts the whole actuator chain.** A frame is saturated if the
+  *limiter* clamped the acceleration request **or** the *mixer* hit a rotor RPM limit. The
+  earlier limiter-only version undercounted badly — one 90 km/h scenario reported 4.6% while
+  the airframe was truly 15.7% saturated, nearly all of it in the mixer. The run log carries
+  `limiter_saturated` and `mixer_saturated` columns alongside the combined flag so a breach
+  can be attributed to a stage.
 
 ### 15.3 Scenarios: [`scenarios.py`](../src/interceptor/analysis/scenarios.py) + [`scenarios/*.yaml`](../scenarios/)
 
@@ -942,7 +1020,7 @@ it only *declares and drives*, no physics logic of its own. It fails loud on unk
 trajectory types, missing keys, or a non-OGL law. A scenario may also name a `wind_preset`
 (`calm`/`moderate`/`gusty`) as a shorthand for the wind profile. The library has **6 static +
 5 linear** geometries (Phase 3), a `scenarios/ablation/` pair for the `b`-penalty study, and
-**`scenarios/phase4/`** with **4 sinusoidal (evasive) + 3 varying-speed (high-speed, to 90
+**`scenarios/stress/`** with **4 sinusoidal (evasive) + 3 varying-speed (high-speed, to 90
 km/h) + 4 wind** stress scenarios (Phase 4).
 
 ### 15.3b Randomized Monte-Carlo trials: [`montecarlo.py`](../src/interceptor/analysis/montecarlo.py)
@@ -956,8 +1034,8 @@ interception"*), reports the other KPIs as separate compliance rates, and breaks
 per family and per wind preset so weak regimes are exposed, not hidden. Each trial's run seed
 is its index, so `(master_seed, num_trials)` reproduces the whole batch byte-for-byte, and a
 batch manifest records the master seed + git hash + the committed tuning. This is what
-certifies the Phase 4 headline: **93% mission success**, a **90 km/h**-class target
-intercepted, and interception essentially flat under wind.
+certifies the headline: **95% mission success**, a **90 km/h**-class target intercepted, and
+interception essentially flat under wind.
 
 ### 15.4 Reporting: [`reporting.py`](../src/interceptor/analysis/reporting.py)
 
@@ -972,13 +1050,14 @@ Under [`tests/`](../tests/), split into `unit/` (per-component: EKF, guidance, c
 sensors, trajectories, frames, KPIs, Monte-Carlo sampling/aggregation, wind wiring, ...) and
 `integration/` (whole-pipeline: stub loop, real interception, scenario suites, a reproducible
 Monte-Carlo batch, MuJoCo headless render). Tests are **headless, non-interactive, and
-seeded**. As of Phase 4: **208 passing tests**. Tests that need the GL context are marked
+seeded**. Current count: **221 passing tests**. Tests that need the GL context are marked
 `mujoco` so they can be skipped where there's no display.
 
 Key rule from `AGENTS.md`: *the Test/KPI role measures and reports faithfully; it never
 tweaks the guidance/control internals or relaxes a target to manufacture a pass.* When it
 finds a systemic failure, it files a finding for the owning role — as happened with the
-saturation KPI in Phase 3.
+saturation KPI in Phase 3, and again with F4-1, where investigating the finding revealed the
+metric itself was undercounting and the reported number had to get **worse** to be honest.
 
 ---
 
@@ -1006,7 +1085,7 @@ Workshop_Autonomous_Systems/
 │   ├── static_*.yaml          # 6 static-target geometries
 │   ├── linear_*.yaml          # 5 constant-velocity geometries
 │   ├── ablation/*.yaml        # b=0 controls for the altitude-penalty study
-│   └── phase4/*.yaml          # 4 sinusoidal + 3 varying-speed + 4 wind stress scenarios
+│   └── stress/*.yaml          # 4 sinusoidal + 3 varying-speed + 4 wind stress scenarios
 │
 ├── scripts/                   # Entry points
 │   ├── check_env.py           # Environment doctor (verifies MuJoCo, off-screen render)
@@ -1093,14 +1172,14 @@ python scripts/replay.py results/intercept --view interceptor # chase cam
 
 # Run a declarative scenario, or the whole suite with a KPI report (Phase 3)
 python scripts/run_scenarios.py scenarios/linear_crossing.yaml
-python scripts/run_scenarios.py scenarios/ --report           # -> results/phase3/
+python scripts/run_scenarios.py scenarios/ --report           # -> results/scenarios/
 
 # The evasive/high-speed/wind stress probes, and the randomized batch (Phase 4)
-python scripts/run_scenarios.py scenarios/phase4 --results-dir results/phase4
-python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/phase4/montecarlo
+python scripts/run_scenarios.py scenarios/stress --results-dir results/stress
+python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/montecarlo
 
 # The tests
-pytest                    # everything (~208 tests)
+pytest                    # everything (221 tests)
 pytest -m "not mujoco"    # skip the off-screen GL render test
 ```
 
@@ -1126,12 +1205,39 @@ The project is built in four phases (from the design review):
   5.0 → 3.5 m/s, and max tilt 35° → 45°.
 - **Phase 4 — ✅ Done.** Randomized 3D trials against **evasive** (sinusoidal),
   **high-speed** (to 90 km/h), and **windy** targets, plus a seeded Monte-Carlo harness for
-  the mission-success KPI. Headline results: **93% mission success (interception)**, a
-  cleanly intercepted **89.7 km/h** target, and Z-overshoot within KPI, with wind robustness
-  confirmed. One params-only tuning change was made with sign-off: max tilt 45° → 60° (and
-  the total-accel cap 30 → 40 m/s²). The residual **command-saturation** tail on very short
-  high-speed intercepts is characterized and filed for a future adaptive-authority refinement
-  (see `docs/phase4_progress.md`). The current git branch is `phase-4`.
+  the mission-success KPI, followed by the **F4-1** follow-up work (honest saturation metric,
+  70° tilt + angular-accel clamp, attitude-priority mixer, thrust projection).
+
+**Final measured results** — canonical 100-trial randomized batch, master seed 0, reproduced
+on the committed code:
+
+| KPI | Target | Measured | |
+| :-- | :-- | :-- | :-: |
+| Mission success (interception) | ≥ 90% | **95%** | ✅ |
+| Max target speed intercepted | ≥ 83.6 km/h | **89.7 km/h** | ✅ |
+| Miss distance `R_miss` ≤ 1.05 m | — | 95% of trials | ✅ |
+| Z-axis overshoot ≤ 0.5 m | — | 98% of trials | ✅ |
+| Time-to-intercept | Static < 10 s / moving < 20 s | 95% of trials | ✅ |
+| Command saturation ≤ 5% of flight time | — | **77% of trials** | ❌ |
+
+Interception is 100% for static and linear families, 97% for sinusoidal (evasive), and 67%
+for `varying_speed` — the fast, accelerating, off-axis targets that carry the whole residual.
+Wind robustness is confirmed: 94% calm / 100% moderate / 93% gusty.
+
+**The one KPI that does not pass is command saturation**, and it is reported that way
+deliberately. 23% of trials spend more than 5% of their flight time pinned at a physical
+limit; these are 85+ km/h crossing targets intercepted from rest in ~2 seconds, where the
+engagement is over before the airframe can finish accelerating. Note that this number got
+*worse* on purpose — the earlier metric counted only the command limiter and ignored motor-
+mixer saturation, reporting 74% compliance when the honest figure was ~40%. Fixing the
+measurement first, then the physics (70° tilt, angular-accel clamp, attitude-priority mixer),
+took it to 77%. Closing the rest needs adaptive-authority or launch-shaping guidance logic,
+which is scoped out; see `docs/phase4_progress.md` for the full finding.
+
+Two further findings remain open by design: **F4-2**, misses against >85 km/h strongly
+crossing targets (a from-rest interceptor cannot lead them — the physical degradation edge),
+and **F4-3**, static targets beyond ~12 m slipping the tight 10 s time budget while still
+intercepting.
 
 Three design decisions worth remembering (recorded in the project's memory):
 - **OGL is the sole guidance law.** PN/APN were evaluated and rejected; they are not

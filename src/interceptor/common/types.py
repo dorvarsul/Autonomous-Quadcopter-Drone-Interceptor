@@ -217,9 +217,17 @@ class MotorCommand:
     The mixer guarantees these sit within [MOTOR_RPM_MIN, MOTOR_RPM_MAX]; this contract
     only checks shape/finiteness (range enforcement is Role 4's job and is unit-tested
     there to avoid duplicating saturation logic).
+
+    ``saturated`` reports whether the mixer had to clamp an infeasible rotor request this
+    step (a rotor driven below MIN or above MAX RPM). Actuator saturation is a *tracked*
+    KPI input just like limiter saturation: if it were dropped here, aggressive attitude
+    slews could exceed the airframe silently while the command-saturation KPI stayed green
+    (hidden saturation — AGENTS.md → saturation must stay measurable, not hidden). It
+    defaults False so the pass-through/stub mixers still satisfy the contract.
     """
 
     rotor_rpm: NDArray[np.float64]  # [front, right, back, left] rotor speeds [RPM]
+    saturated: bool = False  # True if a rotor request was clamped to its RPM limit
 
     def __post_init__(self) -> None:
         object.__setattr__(

@@ -30,7 +30,7 @@ ruff check src tests scripts   # All checks passed
 
 # Run the full seeded KPI suite headless, print the pass/fail table, and write plots:
 python scripts/run_scenarios.py scenarios/ --report
-#   -> results/phase3/kpi_summary.csv + per-scenario PNGs
+#   -> results/scenarios/kpi_summary.csv + per-scenario PNGs
 
 # Single scenario (moving target), and the static demo entry point still works:
 python scripts/run_scenarios.py scenarios/linear_crossing.yaml
@@ -181,7 +181,7 @@ was crossed (guidance still sees estimates, control still sees limited accelerat
   summary (`kpi_summary.csv` + a Markdown table) and per-scenario diagnostic plots (X-Y
   geometry, altitude-vs-time with the Z-overshoot band, range + command-effort with saturated
   frames shaded), plus a b=0.1-vs-b=0 altitude-overlay ablation plot. Artifacts land in
-  `results/phase3/`.
+  `results/scenarios/`.
 - **Ablation finding (reported faithfully):** on this control architecture the b-penalty's
   effect on Z-overshoot is **negligible** — b=0.1 vs b=0 differ by < 0.005 m on the diagonal
   and steep-climb geometries, and even a purpose-built near-vertical climb overshoots < 0.002 m
@@ -192,7 +192,7 @@ was crossed (guidance still sees estimates, control still sees limited accelerat
   closing (higher `t_int`). `b` is therefore retained at its default 0.1 as cheap insurance
   and to keep the OGL cost faithful to the Design Review, with its role to be re-evaluated
   under Phase 4's higher-rate evasive/high-speed geometries.
-- **DoD:** a reproducible report (`results/phase3/`) quantifies OGL performance and the
+- **DoD:** a reproducible report (`results/scenarios/`) quantifies OGL performance and the
   b-penalty effect; PN/APN cited as documentary reference only (not implemented). ✔
 
 ### T3.9 — Regression test suite ✅  (Role 5)
@@ -213,7 +213,7 @@ was crossed (guidance still sees estimates, control still sees limited accelerat
   `max_tilt_rad` 0.6109→0.7854 (T3.7), each with an inline rationale referencing this report.
 - `pipeline/orchestrator.py`: `build_intercept` factory + `extra_metadata` snapshotting.
 - `analysis/kpis.py`: sign-aware Z-overshoot metric; `scripts/run_intercept.py` reuses it.
-- OGL characterization + b-ablation report + plots in `results/phase3/`.
+- OGL characterization + b-ablation report + plots in `results/scenarios/`.
 - New tests: `tests/unit/test_kpis.py`, `tests/unit/test_scenarios.py`,
   `tests/integration/test_scenario_suite.py` (**+29** tests; 149 → 178).
 

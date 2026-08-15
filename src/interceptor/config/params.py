@@ -80,6 +80,23 @@ class ControlParams:
     inner_roll: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
     inner_pitch: PidGains = field(default_factory=lambda: PidGains(kp=300.0, ki=0.0, kd=30.0))
     inner_yaw: PidGains = field(default_factory=lambda: PidGains(kp=2.0, ki=0.0, kd=0.5))
+    # Angular-acceleration authority limit [rad/s^2] applied to the inner-loop PD output
+    # before it becomes torque. Why: on a large-angle attitude step (a from-rest launch or a
+    # hard reversal chasing a fast/evasive target) the raw PD command ``kp*error`` reaches
+    # ~360 rad/s^2, far more roll/pitch torque than the rotors can allocate around the
+    # collective thrust — so the mixer clamps a rotor to an RPM limit (actuator saturation).
+    # The physical ceiling near hover thrust is ~73 rad/s^2: the differential rotor thrust
+    # available while a rotor stays >= 0 (hover per-rotor thrust m*g/4 = 2.45 N, so |f_hi-f_lo|
+    # <= 2*2.45 N) times the arm (0.15 m) over the roll/pitch inertia (0.01 kg*m^2) =
+    # 0.15*4.9/0.01. Clamping the command to this envelope makes a large slew a proper
+    # rate-limited turn instead of an infeasible torque spike the mixer would clamp (actuator
+    # saturation). Small tracking errors stay far under the cap, so steady tracking (and OGL's
+    # first-order tilt-lag model) is unchanged. Tuning (Role 4, user-approved): set to 70.0,
+    # right at the hover authority — over a 60-trial randomized batch this lifts *honest*
+    # command-saturation compliance from 40% to ~62% and nudges mission success 91.7%->93.3%
+    # with no time-to-intercept regression; going lower (<=50) starts slowing intercepts (time
+    # and mission both regress) for little further saturation gain. See the F4-1 fix notes.
+    max_angular_accel_rad_s2: float = 70.0
     # Outer loop (~50 Hz) attitude-reference PIDs (unused; flatness map needs no gains yet).
     outer_xy: PidGains = field(default_factory=PidGains)
     outer_z: PidGains = field(default_factory=PidGains)
@@ -132,22 +149,25 @@ class LimiterParams:
     # params-only): raised 30 -> 40. The total-magnitude cap only binds on the most aggressive
     # climbing dashes (the tilt cap below governs the horizontal component first); 40 m/s^2
     # gives the fast-target/evasive engagements headroom before clamping while staying far
-    # inside the airframe's ~250 m/s^2 thrust capacity, so the motor mixer never saturates in
-    # its place (i.e. this is real authority, not hidden saturation). See the tuning notes.
+    # inside the airframe's ~250 m/s^2 collective-thrust capacity. NOTE: this bounds the
+    # *linear* command, not the *attitude* command -- the motor mixer can still saturate on the
+    # torque needed for an aggressive tilt slew even when this cap is not binding (it drives a
+    # rotor below 0 RPM, not to max), which is why that saturation is now counted in the KPI
+    # (orchestrator) and curbed at its source by the inner-loop angular-accel clamp. See F4-1.
     max_acceleration_m_s2: float = 40.0
-    # Max commandable tilt angle [rad]. Tuning history: 0.6109 (35 deg) -> 0.7854 (45 deg),
-    # then (user-approved, params-only): 0.7854 (45 deg) -> 1.0472 (60 deg). The
-    # horizontal acceleration authority is g*tan(max_tilt): 45 deg capped it at g = 9.81 m/s^2,
-    # against which the fast/evasive geometries (chasing a weaving target, meeting a
-    # 90 km/h closer) clamped for 15-30% of a short engagement -> the dominant command-saturation
-    # KPI miss on the randomized batch. 60 deg raises the authority to g*tan60 = 17.0 m/s^2,
-    # which lifts the randomized-batch mission-success (interception) rate to ~93% and keeps
-    # saturation within KPI on the large majority of engagements. 60 deg is the aggressive-but-
-    # physical end for an interceptor: the vertical thrust component cos(60) = 0.5 is still ample
-    # given the thrust headroom, and static/linear intercepts remain overshoot-free (no
-    # regression). Going further (65 deg) began to overshoot easy static targets, so 60 deg is
-    # the chosen balance. See the tuning notes.
-    max_tilt_rad: float = 1.0472
+    # Max commandable tilt angle [rad]. Tuning history: 0.6109 (35 deg) -> 0.7854 (45 deg) ->
+    # 1.0472 (60 deg), then (user-approved) 1.0472 (60 deg) -> 1.2217 (70 deg). The horizontal
+    # acceleration authority is g*tan(max_tilt); the fast crossing/quartering geometries pin
+    # against it mid-course, the dominant command-saturation source. 60 deg gave g*tan60 =
+    # 17.0 m/s^2; 70 deg raises it to g*tan70 = 27.0 m/s^2, roughly halving the *honest*
+    # saturation on the hardest short high-speed crossers (e.g. varying_speed_crossing_84kmh
+    # 40% -> 17%). 60 deg was previously the ceiling because 65 deg overshot easy static
+    # targets -- but that overshoot was the thrust/tilt-lag coupling since cancelled by the
+    # inner-loop thrust projection (see control/inner_loop), so with the coupling gone 70 deg
+    # no longer regresses static Z-overshoot (verified: static_high/far/diagonal unchanged at
+    # <= 0.013 m). The vertical thrust component cos(70) = 0.34 is still covered by the thrust
+    # headroom. Paired with the inner-loop angular-accel clamp (ControlParams). See F4-1 notes.
+    max_tilt_rad: float = 1.2217
 
 
 @dataclass(frozen=True)
