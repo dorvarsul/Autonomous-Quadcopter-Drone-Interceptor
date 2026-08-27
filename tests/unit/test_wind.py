@@ -1,4 +1,4 @@
-"""Wind/gust disturbance reproducibility & calm-reduction (Phase 1 — T1.6 / T1.9)."""
+"""Wind/gust disturbance reproducibility & calm-reduction."""
 
 from __future__ import annotations
 

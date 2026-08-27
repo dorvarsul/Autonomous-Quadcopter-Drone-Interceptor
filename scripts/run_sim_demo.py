@@ -1,8 +1,8 @@
-"""Phase 1 simulation demo (Role 1) — produce a replayable real-physics pose log.
+"""Simulation demo (Role 1) — produce a replayable real-physics pose log.
 
 Drives the **real** MuJoCo plant (hovering interceptor) alongside a weaving target
-trajectory and writes a pose-augmented run log to ``results/<run_id>/``. There is no
-guidance/control yet (that is Phase 2), so this is a flight/sensor demo, not a guided
+trajectory and writes a pose-augmented run log to ``results/<run_id>/``. It runs no
+guidance/control, so this is a flight/sensor demo, not a guided
 interception — but it exercises the whole Simulation layer end-to-end (plant, actuator,
 trajectory, optional wind) and yields a concrete artifact to view with::
 
@@ -86,7 +86,7 @@ def run_demo(run_id: str, seconds: float, seed: int, wind_preset: str, results_d
         run_dir,
         seed=seed,
         params=default_params().to_dict(),
-        metadata={"run_id": run_id, "demo": "phase1_sim", "wind": wind_preset},
+        metadata={"run_id": run_id, "demo": "sim_demo", "wind": wind_preset},
     )
 
     dt = 1.0 / constants.SIM_HZ
@@ -105,7 +105,7 @@ def run_demo(run_id: str, seconds: float, seed: int, wind_preset: str, results_d
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Phase 1 simulation demo (writes a pose log).")
+    parser = argparse.ArgumentParser(description="Simulation demo (writes a pose log).")
     parser.add_argument("--run-id", default="sim_demo")
     parser.add_argument("--seconds", type=float, default=8.0)
     parser.add_argument("--seed", type=int, default=0)

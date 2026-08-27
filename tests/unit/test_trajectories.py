@@ -1,4 +1,4 @@
-"""Trajectory-generator correctness & determinism (Phase 1 — T1.3 / T1.9)."""
+"""Trajectory-generator correctness & determinism."""
 
 from __future__ import annotations
 

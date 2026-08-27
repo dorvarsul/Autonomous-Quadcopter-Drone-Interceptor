@@ -1,6 +1,6 @@
-"""Motor Mixer — body torque + thrust → four rotor RPMs (Role 4, Phase 2 — T2.7).
+"""Motor Mixer — body torque + thrust → four rotor RPMs (Role 4).
 
-The mixer is the exact algebraic **inverse** of the Phase 1 rotor model
+The mixer is the exact algebraic **inverse** of the rotor model
 (:class:`~interceptor.simulation.actuators.RotorActuatorModel`): given the desired body
 wrench it solves for the four per-rotor thrusts, then for RPM via ``thrust = kT·rpm²``.
 It reads the same shared constants as the forward model, so the two can never disagree
@@ -68,12 +68,29 @@ class QuadMotorMixer:
         f_left = 0.5 * (b + roll_term)
         thrusts = np.array([f_front, f_right, f_back, f_left], dtype=np.float64)
 
-        # thrust = kT·rpm² -> rpm = sqrt(f/kT); a negative required thrust is infeasible.
-        infeasible = thrusts < 0.0
+        # Attitude-priority allocation. A negative per-rotor thrust is infeasible (a rotor
+        # cannot push down). Rather than clip that rotor — which throws away the commanded
+        # *torque* (attitude authority, what interception depends on) as well as the thrust —
+        # raise the collective uniformly so the minimum rotor reaches 0. Adding the same amount
+        # to all four rotors leaves every torque differential (roll f3-f1, pitch f2-f0, yaw)
+        # exactly intact and only increases total thrust. This exploits the large RPM headroom
+        # (rotors typically run ~5-7k of 25k) to keep attitude authority through low-collective
+        # phases (descending / gentle-hover corrections) where naive clipping otherwise
+        # saturated the mixer. The cost is a small transient thrust surplus (the boost), which
+        # the outer loop corrects next cycle and which the Z-overshoot KPI bounds. It is *not*
+        # a control-authority loss, so it is not flagged as saturation. Genuine saturation
+        # remains: if after the boost a rotor exceeds MAX RPM, the airframe truly cannot deliver
+        # the wrench — that is clamped and flagged (the real actuator ceiling, KPI-tracked).
+        deficit = -float(np.min(thrusts))
+        if deficit > 0.0:
+            thrusts = thrusts + deficit  # uniform collective boost; torques unchanged
+
         rpm = np.sqrt(np.clip(thrusts, 0.0, None) / self._kt)
         clamped = np.clip(rpm, self._rpm_min, self._rpm_max)
 
-        saturated = bool(np.any(infeasible) or np.any(clamped != rpm))
+        # After the boost the floor is satisfied by construction; saturation is now only the
+        # true ceiling (a rotor that would exceed MAX RPM, so the demanded wrench is undeliverable).
+        saturated = bool(np.any(clamped != rpm))
         if saturated:
             _log.warning(
                 "motor mixer saturation: requested per-rotor thrust=%s N, rpm=%s clamped to %s",
@@ -83,4 +100,4 @@ class QuadMotorMixer:
             )
 
         guards.ensure_finite("rotor_rpm", clamped)
-        return MotorCommand(rotor_rpm=clamped)
+        return MotorCommand(rotor_rpm=clamped, saturated=saturated)

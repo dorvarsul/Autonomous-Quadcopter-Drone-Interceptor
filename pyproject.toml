@@ -20,8 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Test/dev tooling. `ruff` lint/format config lives below; adding it was confirmed as
-# part of the Phase 0 quality-gate task (T0.9).
+# Test/dev tooling. `ruff` lint/format config lives below.
 dev = [
     "pytest==9.1.1",
     "ruff>=0.6",

@@ -1,4 +1,4 @@
-"""Flight Control outer loop, ~50 Hz (Role 4, Phase 2 — T2.5).
+"""Flight Control outer loop, ~50 Hz (Role 4).
 
 Translates the clamped acceleration command into a target attitude + collective thrust
 via quadrotor **differential flatness**: a quad accelerates only along its body +Z

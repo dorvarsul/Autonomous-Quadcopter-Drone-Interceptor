@@ -1,4 +1,4 @@
-"""Optimal Guidance Law — the project's sole guidance law (Role 3, Phase 2 — T2.3).
+"""Optimal Guidance Law — the project's sole guidance law (Role 3).
 
 OGL is modeled as the Linear-Quadratic problem minimizing miss distance and control
 effort, ``J = y(t_f)^2 + ∫ u(t)^2 dt``. Its closed-form solution is a
@@ -18,8 +18,8 @@ Two Design-Review features distinguish OGL from a naive proportional law:
 * **Altitude penalty ``b``.** The Design Review notes the Z (altitude) axis is
   overshoot-prone. ``b`` (default 0.1) de-weights the vertical command, trading a little
   vertical aggressiveness for the elimination of altitude overshoot. It is applied as a
-  ``1/(1 + b)`` attenuation of the Z channel here; the exact weighting is retuned in
-  Phase 3 (changing ``b`` affects a KPI and needs user confirmation — AGENTS.md).
+  ``1/(1 + b)`` attenuation of the Z channel here (changing ``b`` affects a KPI and
+  needs user confirmation — AGENTS.md).
 
 OGL requests an *ideal* acceleration only. It does not clamp to physical limits (the
 Command Limiter's job) nor convert to tilt/motor commands (Flight Control's job).
@@ -78,7 +78,7 @@ class OptimalGuidanceLaw(GuidanceLaw):
         v = np.asarray(estimate.relative_velocity_m_s, dtype=np.float64)
         # Augmented ZEM term is opt-in (see GuidanceParams.use_target_acceleration): the
         # relative-state EKF conflates the interceptor's own maneuver into a_rel, so we
-        # zero it for non-maneuvering (Phase 2) engagements to avoid positive feedback.
+        # zero it for non-maneuvering engagements to avoid positive feedback.
         if self._p.use_target_acceleration:
             a = np.asarray(estimate.relative_acceleration_m_s2, dtype=np.float64)
         else:

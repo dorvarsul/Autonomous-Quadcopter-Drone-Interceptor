@@ -77,8 +77,8 @@ class TargetStateEstimate:
     quality: float  # scalar estimate quality in [0, 1]; 1 = fully confident
     # Relative acceleration (target - interceptor), world frame [m/s^2]. Feeds OGL's
     # augmented Zero-Effort-Miss term so evasive/maneuvering targets are handled. Optional
-    # with a zero default so the Phase 0 pass-through estimator (which does not estimate
-    # acceleration) still satisfies the contract; the Phase 2 EKF fills it in.
+    # with a zero default so the pass-through estimator (which does not estimate
+    # acceleration) still satisfies the contract; the EKF fills it in.
     relative_acceleration_m_s2: NDArray[np.float64] = field(
         default_factory=lambda: np.zeros(3, dtype=np.float64)
     )
@@ -195,7 +195,7 @@ class BodyTorqueThrustCommand:
     not an attitude. A dedicated message keeps torque out of the angle-named fields of
     :class:`AttitudeReference` (Clean Code -> meaningful domain names). Torque axes follow
     the body frame convention in :mod:`common.frames` (roll about +X, pitch about +Y, yaw
-    about +Z); the mixer inverts the Phase 1 rotor model to realize them within RPM limits.
+    about +Z); the mixer inverts the rotor model to realize them within RPM limits.
     """
 
     torque_body_n_m: NDArray[np.float64]  # [roll, pitch, yaw] body torque [N*m]
@@ -217,9 +217,17 @@ class MotorCommand:
     The mixer guarantees these sit within [MOTOR_RPM_MIN, MOTOR_RPM_MAX]; this contract
     only checks shape/finiteness (range enforcement is Role 4's job and is unit-tested
     there to avoid duplicating saturation logic).
+
+    ``saturated`` reports whether the mixer had to clamp an infeasible rotor request this
+    step (a rotor driven below MIN or above MAX RPM). Actuator saturation is a *tracked*
+    KPI input just like limiter saturation: if it were dropped here, aggressive attitude
+    slews could exceed the airframe silently while the command-saturation KPI stayed green
+    (hidden saturation — AGENTS.md → saturation must stay measurable, not hidden). It
+    defaults False so the pass-through/stub mixers still satisfy the contract.
     """
 
     rotor_rpm: NDArray[np.float64]  # [front, right, back, left] rotor speeds [RPM]
+    saturated: bool = False  # True if a rotor request was clamped to its RPM limit
 
     def __post_init__(self) -> None:
         object.__setattr__(

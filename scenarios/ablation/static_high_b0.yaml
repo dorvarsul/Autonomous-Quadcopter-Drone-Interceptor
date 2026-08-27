@@ -1,0 +1,17 @@
+# b-penalty ablation: identical to static_high but with the altitude penalty DISABLED
+# (b = 0). Compare its Z-overshoot against static_high (b = 0.1) to isolate the penalty's
+# effect. This intentionally trades overshoot suppression away — it is a
+# measurement control, not a tuning we ship.
+name: ablation_static_high_b0
+seed: 0
+target_class: static
+guidance_law: OGL
+time_limit_s: 12.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: static
+  position_m: [5.0, 0.0, 8.0]
+params:
+  guidance:
+    altitude_penalty_b: 0.0

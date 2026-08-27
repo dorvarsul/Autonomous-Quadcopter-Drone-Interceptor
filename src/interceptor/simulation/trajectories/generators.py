@@ -1,15 +1,15 @@
-"""Concrete target-trajectory generators (Role 1, Phase 1 — T1.3).
+"""Concrete target-trajectory generators (Role 1).
 
 The target is a *threat to be tracked*, not a controlled body: its motion is
 **prescribed kinematically** (position is a closed-form function of time), so the
 interceptor's job is purely to chase it. Every generator therefore exposes both
 ``position_at`` (the :class:`TargetTrajectory` contract) and an analytic
-``velocity_at`` used by the ground-truth relative kinematics (T1.4).
+``velocity_at`` used by the ground-truth relative kinematics.
 
 All families are deterministic: an identical configuration reproduces an identical
 path. The only stochastic family, :class:`WindAffectedTrajectory`, draws its
 randomness from a seeded :class:`~interceptor.simulation.wind.WindField`, so it too is
-byte-reproducible for a fixed seed (T1.3 DoD).
+byte-reproducible for a fixed seed.
 
 Units: positions [m], velocities [m/s], times [s], angular frequency via Hz.
 """

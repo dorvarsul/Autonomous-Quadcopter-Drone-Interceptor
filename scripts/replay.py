@@ -1,4 +1,4 @@
-"""Interactive replay viewer (Role 1, Phase 1 — T1.10).
+"""Interactive replay viewer (Role 1).
 
 Watch a *logged* interception in a live MuJoCo window. This is the project's only
 sanctioned interactive window and it is **opt-in and replay-only**: it consumes an
@@ -130,7 +130,7 @@ class ReplaySession:
             if missing:
                 raise KeyError(
                     f"run_log.csv is missing pose columns {missing}; it predates the "
-                    "T1.10 pose-augmented schema and cannot be replayed."
+                    "pose-augmented schema and cannot be replayed."
                 )
             return [{c: float(row[c]) for c in _POSE_COLUMNS} for row in reader]
 

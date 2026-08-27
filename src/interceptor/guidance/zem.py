@@ -1,4 +1,4 @@
-"""Zero-Effort-Miss (ZEM) computation for the guidance layer (Role 3, Phase 2 — T2.2).
+"""Zero-Effort-Miss (ZEM) computation for the guidance layer (Role 3).
 
 The **Zero-Effort-Miss** is the relative position that would remain at intercept time if
 the interceptor applied no further acceleration — i.e. the predicted miss vector::

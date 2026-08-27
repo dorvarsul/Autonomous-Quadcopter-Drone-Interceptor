@@ -1,4 +1,4 @@
-"""Flight Control inner loop, ~400 Hz attitude PID (Role 4, Phase 2 — T2.6).
+"""Flight Control inner loop, ~400 Hz attitude PID (Role 4).
 
 The fast loop that makes the tilt delay *real*: it drives the actual attitude toward the
 outer loop's :class:`AttitudeReference` using gyroscope feedback, emitting the body
@@ -15,7 +15,20 @@ kinematics, seeded level to match the airframe's initial state), then runs a PD 
 
 Proportional term pulls attitude toward the reference; the rate term damps using the gyro.
 The resulting first-order-lag-like tilt response is what OGL's lag model anticipates — we
-do not shortcut it. Gains live in ``config/params.py`` (retuned in Phase 3).
+do not shortcut it. Gains live in ``config/params.py``.
+
+**Thrust projection (tilt-lag compensation).** The outer loop sizes collective thrust
+``m*|f|`` assuming the body is *already* at the target tilt. But the tilt lags (this loop's
+whole point), so during the transient that thrust acts along the still-too-vertical body
+axis and injects excess vertical force — the airframe balloons upward on aggressive
+maneuvers (worst on a same-altitude lateral dash, where the guidance Z-command is ~0 yet
+the quad still climbs). We therefore scale the collective thrust by the alignment between
+the *desired* thrust axis and the *actual* body +Z, i.e. project the desired specific force
+onto the axis the rotors can currently push along (the standard geometric-control thrust
+``m * f·ẑ_body``). The realized vertical force then stays ≈ the commanded value throughout
+the tilt transient; once the tilt has caught up the axes align, the factor is 1, and
+nothing changes in steady state. This corrects only the thrust magnitude — the tilt still
+lags exactly as before, so OGL's lag model remains valid.
 """
 
 from __future__ import annotations
@@ -27,6 +40,9 @@ from interceptor.common import frames, guards
 from interceptor.common.types import AttitudeReference, BodyTorqueThrustCommand
 from interceptor.config import constants
 from interceptor.config.params import ControlParams
+
+# Body +Z (thrust) axis in the body frame; rotated into world to get the thrust direction.
+_BODY_UP = np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
 
 def _quat_multiply(a: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -75,6 +91,7 @@ class AttitudePidInnerLoop:
         self._dt = 1.0 / float(inner_loop_hz)
         self._kp = np.array([p.inner_roll.kp, p.inner_pitch.kp, p.inner_yaw.kp], dtype=np.float64)
         self._kd = np.array([p.inner_roll.kd, p.inner_pitch.kd, p.inner_yaw.kd], dtype=np.float64)
+        self._max_angular_accel = float(p.max_angular_accel_rad_s2)
         self._inertia = np.array(
             [
                 constants.QUAD_INERTIA_IXX_KG_M2,
@@ -105,10 +122,29 @@ class AttitudePidInnerLoop:
             dtype=np.float64,
         )
         angular_accel = self._kp * error - self._kd * rates
+        # Clamp to the rotors' angular-acceleration authority so a large-angle step becomes a
+        # rate-limited slew rather than an infeasible torque spike the mixer would have to
+        # clamp (actuator saturation). Scale the whole vector so the slew axis is preserved.
+        accel_mag = float(np.linalg.norm(angular_accel))
+        if accel_mag > self._max_angular_accel:
+            angular_accel = angular_accel * (self._max_angular_accel / accel_mag)
         torque = self._inertia * angular_accel
 
+        # Thrust projection: scale collective thrust by how well the *desired* thrust axis
+        # aligns with the *actual* body +Z, so the realized vertical force stays correct
+        # through the tilt lag instead of ballooning upward (see module docstring). The dot
+        # of two unit axes is in [-1, 1]; clamp to [0, 1] so a large transient error never
+        # inverts or amplifies thrust.
+        desired_axis = frames.body_to_world(
+            frames.euler_to_quat(reference.roll_rad, reference.pitch_rad, reference.yaw_rad),
+            _BODY_UP,
+        )
+        actual_axis = frames.body_to_world(self._q, _BODY_UP)
+        projection = float(np.clip(np.dot(desired_axis, actual_axis), 0.0, 1.0))
+        thrust = reference.thrust_n * projection
+
         guards.ensure_finite("inner_torque", torque)
-        return BodyTorqueThrustCommand(torque_body_n_m=torque, thrust_n=reference.thrust_n)
+        return BodyTorqueThrustCommand(torque_body_n_m=torque, thrust_n=thrust)
 
 
 def _wrap_angle(angle: float) -> float:

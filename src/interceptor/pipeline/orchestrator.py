@@ -1,10 +1,9 @@
 """Stub orchestrator: runs the full 6-stage pipeline end-to-end, headless.
 
 Wires Simulation -> Estimation -> Guidance -> Command Limiter -> Outer -> Inner ->
-Motor Mixer -> Simulation using injected components (Dependency Inversion). Phase 0
-runs it with the pass-through stubs to prove the loop closes deterministically; later
-phases inject real implementations behind the *same* interfaces with no orchestrator
-change.
+Motor Mixer -> Simulation using injected components (Dependency Inversion). The
+pass-through stubs prove the loop closes deterministically; real implementations
+inject behind the *same* interfaces with no orchestrator change.
 
 Determinism: the only randomness enters through the injected RNG factory; with stub
 components there is none, so a given (seed, params, step count) yields a byte-identical
@@ -68,10 +67,11 @@ from interceptor.simulation.stubs import (
     StationaryPlant,
 )
 from interceptor.simulation.trajectories.generators import StaticTrajectory
+from interceptor.simulation.wind import WindField
 
 # Columns of the per-step run log. Fixed order => deterministic CSV.
 # The pose columns (interceptor quaternion + target position) make a run replayable in
-# an interactive viewer (Phase 1 T1.10) without re-running the sim. They are additive:
+# an interactive viewer without re-running the sim. They are additive:
 # downstream analysis keys by column name, so appending columns is safe.
 LOG_FIELDS = (
     "step_index",
@@ -89,22 +89,44 @@ LOG_FIELDS = (
     "estimate_range_m",
     "accel_cmd_norm_m_s2",
     "saturated",
+    "limiter_saturated",
+    "mixer_saturated",
     "rotor_rpm_0",
     "rotor_rpm_1",
     "rotor_rpm_2",
     "rotor_rpm_3",
 )
 
-# Identity orientation used when a plant does not expose an attitude (e.g. the Phase 0
+# Identity orientation used when a plant does not expose an attitude (e.g. a
 # stub plant): body frame aligned with world.
 _IDENTITY_QUAT = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+
+
+def _build_wind_field(params: Params, rng: RngFactory) -> WindField | None:
+    """Construct the interceptor's wind disturbance from ``params.wind`` (Role 1/6 wiring).
+
+    Returns ``None`` for the **calm** profile (zero steady wind and zero gust std) so a
+    disturbance-free run keeps the exact undisturbed dynamics and stays byte-identical to
+    the undisturbed runs (the calm preset must reduce to no wind exactly — see wind.py).
+    Any disturbed profile (a steady breeze and/or gusts, e.g. the ``moderate``/``gusty``
+    presets a wind scenario selects via ``params.wind``) yields a reproducible
+    :class:`WindField` seeded from a dedicated ``"wind"`` RNG stream, so the gust series is
+    deterministic for a fixed seed without perturbing the sensor stream (common/rng.py).
+    """
+    wind = params.wind
+    is_calm = wind.gust_std_m_s == 0.0 and not np.any(np.asarray(wind.steady_velocity_m_s))
+    if is_calm:
+        return None
+    # Only a gusty profile consumes randomness; a steady-only breeze needs no stream.
+    wind_rng = rng.stream("wind") if wind.gust_std_m_s > 0.0 else None
+    return WindField(wind, wind_rng)
 
 
 @dataclass(frozen=True)
 class PipelineComponents:
     """The injected, interface-typed components wired into the loop.
 
-    Defaulting to the Phase 0 stubs keeps the call site trivial while leaving every slot
+    Defaulting to the pass-through stubs keeps the call site trivial while leaving every slot
     swappable for a real implementation (Open/Closed, Dependency Inversion).
     """
 
@@ -121,7 +143,7 @@ class PipelineComponents:
 
     @staticmethod
     def default_stubs() -> PipelineComponents:
-        """All-stub wiring used by Phase 0 and by infra tests."""
+        """All-stub wiring used by infra tests and the skeleton loop."""
         return PipelineComponents(
             trajectory=StaticTargetTrajectory(np.array([10.0, 0.0, 5.0])),
             sensor=IdealSensorModel(),
@@ -136,20 +158,23 @@ class PipelineComponents:
         )
 
     @staticmethod
-    def phase2_intercept(
+    def build_intercept(
         rng: RngFactory,
         params: Params,
         *,
+        trajectory: TargetTrajectory,
         interceptor_position_m: np.ndarray,
-        target_position_m: np.ndarray,
         scene_path: str | Path | None = None,
     ) -> PipelineComponents:
-        """Real Phase 2 wiring: MuJoCo plant + noisy sensor + EKF + OGL + control + mixer.
+        """Real interception wiring against an *arbitrary* target trajectory.
 
-        This is the closed loop the Phase 2 exit criterion exercises (static-target
-        interception). Every slot is a real implementation behind the same interface the
-        stubs satisfied, so the orchestrator itself is unchanged (Open/Closed). MuJoCo is
-        imported lazily so importing this module never requires the physics engine.
+        MuJoCo plant + noisy sensor + EKF + OGL + limiter + dual-loop control + mixer,
+        every slot a real implementation behind the same interface the stubs satisfied, so
+        the orchestrator itself is unchanged (Open/Closed). The target motion is injected as
+        a :class:`TargetTrajectory`, so the *same* closed loop flies static, linear, or any
+        other trajectory family (the scenario runner / evasive targets) without
+        editing this factory. MuJoCo is imported lazily so importing this module never
+        requires the physics engine.
         """
         # Lazy import: keeps the stub path (and non-mujoco tests) free of the native dep.
         from interceptor.simulation.mujoco_plant import DEFAULT_SCENE_PATH, MujocoPlant
@@ -157,9 +182,10 @@ class PipelineComponents:
         plant = MujocoPlant(
             scene_path=scene_path or DEFAULT_SCENE_PATH,
             initial_position_m=np.asarray(interceptor_position_m, dtype=np.float64),
+            wind=_build_wind_field(params, rng),
         )
         return PipelineComponents(
-            trajectory=StaticTrajectory(np.asarray(target_position_m, dtype=np.float64)),
+            trajectory=trajectory,
             sensor=NoisyDelayedSensorModel(params.sensor, rng.stream("sensor")),
             estimator=ExtendedKalmanFilter(params.ekf),
             guidance=OptimalGuidanceLaw(params.guidance),
@@ -169,6 +195,29 @@ class PipelineComponents:
             mixer=QuadMotorMixer(),
             plant=plant,
             renderer=NullRenderer(),
+        )
+
+    @staticmethod
+    def intercept(
+        rng: RngFactory,
+        params: Params,
+        *,
+        interceptor_position_m: np.ndarray,
+        target_position_m: np.ndarray,
+        scene_path: str | Path | None = None,
+    ) -> PipelineComponents:
+        """Real wiring against a **static** target (thin wrapper over
+        :meth:`build_intercept`).
+
+        This is the closed loop the static-target interception exercises; a convenience
+        wrapper that fixes the target trajectory so callers need only a target position.
+        """
+        return PipelineComponents.build_intercept(
+            rng,
+            params,
+            trajectory=StaticTrajectory(np.asarray(target_position_m, dtype=np.float64)),
+            interceptor_position_m=interceptor_position_m,
+            scene_path=scene_path,
         )
 
 
@@ -207,10 +256,11 @@ class StubOrchestrator:
         self,
         num_steps: int,
         run_dir: Path,
-        run_id: str = "phase0_stub",
+        run_id: str = "stub_pipeline",
         *,
         terminate_on_intercept: bool = False,
         capture_radius_m: float = constants.INTERCEPT_CAPTURE_RADIUS_M,
+        extra_metadata: dict | None = None,
     ) -> RunResult:
         """Execute the loop headlessly and return a :class:`RunResult`.
 
@@ -222,7 +272,7 @@ class StubOrchestrator:
         come within ``capture_radius_m`` and then starts increasing, the engagement is
         over (Role 5/6). The last logged frame is exactly that closest-approach point, so
         no physically meaningless post-intercept flyby is recorded. Off by default so the
-        Phase 0/2 fixed-duration runs and their determinism tests are unaffected.
+        fixed-duration runs and their determinism tests are unaffected.
         """
         if not self._components.renderer.is_headless:
             raise RuntimeError(
@@ -231,20 +281,25 @@ class StubOrchestrator:
             )
 
         run_dir = Path(run_dir)
+        metadata = {
+            "run_id": run_id,
+            "num_steps": num_steps,
+            "sim_hz": constants.SIM_HZ,
+            "inner_loop_hz": constants.INNER_LOOP_HZ,
+            "outer_loop_hz": constants.OUTER_LOOP_HZ,
+            "estimation_hz": constants.ESTIMATION_HZ,
+            "guidance_hz": constants.GUIDANCE_HZ,
+            "guidance_law": self._components.guidance.name,
+        }
+        # Scenario runner injects its name + resolved spec here so the snapshot fully
+        # identifies the run (reproducibility contract).
+        if extra_metadata:
+            metadata.update(extra_metadata)
         snapshot_path = write_run_snapshot(
             run_dir,
             seed=self._rng.seed,
             params=self._params.to_dict(),
-            metadata={
-                "run_id": run_id,
-                "num_steps": num_steps,
-                "sim_hz": constants.SIM_HZ,
-                "inner_loop_hz": constants.INNER_LOOP_HZ,
-                "outer_loop_hz": constants.OUTER_LOOP_HZ,
-                "estimation_hz": constants.ESTIMATION_HZ,
-                "guidance_hz": constants.GUIDANCE_HZ,
-                "guidance_law": self._components.guidance.name,
-            },
+            metadata=metadata,
         )
 
         dt = 1.0 / constants.SIM_HZ
@@ -353,6 +408,8 @@ class StubOrchestrator:
         accel_norm = (
             float(np.linalg.norm(limited.acceleration_m_s2)) if limited is not None else 0.0
         )
+        limiter_saturated = bool(limited.saturated) if limited is not None else False
+        mixer_saturated = bool(motor_command.saturated)
         quat = np.asarray(interceptor_quat, dtype=np.float64)
         return {
             "step_index": tick.step_index,
@@ -369,7 +426,14 @@ class StubOrchestrator:
             "target_z_m": float(target_pos[frames.Z]),
             "estimate_range_m": float(estimate.range_m) if estimate is not None else 0.0,
             "accel_cmd_norm_m_s2": accel_norm,
-            "saturated": bool(limited.saturated) if limited is not None else False,
+            # Command-saturation KPI flag: the actuator chain saturated this step if EITHER
+            # the limiter clamped the acceleration request OR the mixer clamped a rotor to an
+            # RPM limit. Counting only the limiter would hide mixer saturation on aggressive
+            # attitude slews (AGENTS.md → saturation must stay measurable). Per-stage flags are
+            # logged alongside for attribution.
+            "saturated": limiter_saturated or mixer_saturated,
+            "limiter_saturated": limiter_saturated,
+            "mixer_saturated": mixer_saturated,
             "rotor_rpm_0": float(motor_command.rotor_rpm[0]),
             "rotor_rpm_1": float(motor_command.rotor_rpm[1]),
             "rotor_rpm_2": float(motor_command.rotor_rpm[2]),

@@ -1,4 +1,4 @@
-"""Rotor actuator & saturation correctness (Phase 1 — T1.2 / T1.9). No MuJoCo needed."""
+"""Rotor actuator & saturation correctness. No MuJoCo needed."""
 
 from __future__ import annotations
 

@@ -1,0 +1,16 @@
+# Evasive target weaving laterally (Y) about a fixed stand-off point — the classic
+# side-to-side juke. Exercises EKF LOS tracking and OGL responsiveness in the horizontal
+# plane (Design Review §7, evasive).
+name: sinusoidal_lateral_weave
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 18.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: sinusoidal
+  start_position_m: [11.0, 0.0, 6.0]
+  drift_velocity_m_s: [0.0, 0.0, 0.0]
+  amplitude_m: [0.0, 2.0, 0.0]
+  frequency_hz: 0.2

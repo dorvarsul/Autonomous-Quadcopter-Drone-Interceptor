@@ -1,6 +1,6 @@
-"""Run the Phase 2 guided interception headlessly and write a replayable, logged run.
+"""Run the guided interception headlessly and write a replayable, logged run.
 
-This is the end-to-end Phase 2 demonstration: the full 6-stage pipeline with the *real*
+This is the end-to-end demonstration: the full 6-stage pipeline with the *real*
 components — MuJoCo plant, noisy/delayed sensor, EKF, OGL, command limiter, dual-loop
 control, and motor mixer — closing on a static target. Output (pose+KPI run log + config
 snapshot) lands in ``results/<run_id>/`` and can be viewed with the replay tool::
@@ -15,31 +15,19 @@ byte-for-byte.
 from __future__ import annotations
 
 import argparse
-import csv
 from pathlib import Path
 
 import numpy as np
 
+from interceptor.analysis.kpis import compute_kpis, load_run_trace
 from interceptor.common.rng import RngFactory
 from interceptor.config import constants
 from interceptor.config.params import default_params, load_params
 from interceptor.pipeline.orchestrator import PipelineComponents, StubOrchestrator
 
 
-def _min_range_m(log_path: Path) -> tuple[float, float]:
-    """Return (min interceptor-target range [m], time of closest approach [s])."""
-    best, best_t = float("inf"), 0.0
-    for row in csv.DictReader(log_path.open()):
-        ip = np.array([float(row[f"interceptor_{a}_m"]) for a in "xyz"])
-        tp = np.array([float(row[f"target_{a}_m"]) for a in "xyz"])
-        rng = float(np.linalg.norm(tp - ip))
-        if rng < best:
-            best, best_t = rng, float(row["sim_time_s"])
-    return best, best_t
-
-
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the Phase 2 guided interception (headless).")
+    parser = argparse.ArgumentParser(description="Run the guided interception (headless).")
     parser.add_argument("--target", type=float, nargs=3, default=[6.0, 0.0, 4.0],
                         metavar=("X", "Y", "Z"), help="Static target world position [m].")
     parser.add_argument("--start", type=float, nargs=3, default=[0.0, 0.0, 2.0],
@@ -58,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
 
     params = load_params(args.params) if args.params else default_params()
     rng = RngFactory(args.seed)
-    components = PipelineComponents.phase2_intercept(
+    components = PipelineComponents.intercept(
         rng, params,
         interceptor_position_m=np.array(args.start, dtype=float),
         target_position_m=np.array(args.target, dtype=float),
@@ -70,8 +58,12 @@ def main(argv: list[str] | None = None) -> int:
         terminate_on_intercept=args.terminate,
     )
 
-    min_range, t_int = _min_range_m(result.log_path)
-    hit = "HIT" if min_range <= constants.R_MISS_MAX_M else "miss"
+    # Reuse the KPI module as the single source of truth for miss distance / t_int.
+    trace = load_run_trace(result.log_path)
+    kpi = compute_kpis(trace, time_to_intercept_max_s=constants.T_INT_STATIC_MAX_S)
+    min_range = kpi.miss_distance_m
+    t_int = float(trace.time_s[int(np.argmin(trace.range_m))])
+    hit = "HIT" if kpi.miss_ok else "miss"
     print(f"Ran {result.num_steps} steps headlessly against target {args.target}.")
     print(f"  min miss distance: {min_range:.3f} m at t={t_int:.2f} s  [{hit} vs "
           f"R_miss <= {constants.R_MISS_MAX_M} m]")

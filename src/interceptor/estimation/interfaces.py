@@ -12,7 +12,7 @@ class Estimator(ABC):
 
     Owned by Role 2. Consumes ONLY ``RawSensorMeasurement`` (never ground truth) and
     must expose estimate quality/covariance so Guidance can reason about uncertainty.
-    The Phase 2 implementation is the Extended Kalman Filter.
+    The concrete implementation is the Extended Kalman Filter.
     """
 
     @abstractmethod

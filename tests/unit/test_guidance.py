@@ -1,4 +1,4 @@
-"""Unit tests for the guidance layer (Role 3): time-to-go, ZEM, and OGL (T2.2, T2.3)."""
+"""Unit tests for the guidance layer (Role 3): time-to-go, ZEM, and OGL."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def test_time_to_go_uses_range_over_closing_speed_when_closing():
 
 
 def test_time_to_go_falls_back_to_reference_speed_from_rest():
-    p = GuidanceParams()  # reference_closing_speed_m_s = 5.0
+    p = GuidanceParams()  # reference_closing_speed_m_s = 4.25
     r = np.array([10.0, 0.0, 0.0])
     v = np.zeros(3)  # not closing at all
     assert time_to_go_s(r, v, p) == 10.0 / p.reference_closing_speed_m_s

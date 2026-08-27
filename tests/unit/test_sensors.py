@@ -1,4 +1,4 @@
-"""Sensor noise/latency correctness (Phase 1 — T1.5 / T1.9)."""
+"""Sensor noise/latency correctness."""
 
 from __future__ import annotations
 

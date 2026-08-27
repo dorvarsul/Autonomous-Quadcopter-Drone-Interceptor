@@ -1,4 +1,4 @@
-"""Command Limiter — the single owner of saturation (Role 4, Phase 2 — T2.4).
+"""Command Limiter — the single owner of saturation (Role 4).
 
 SAFETY stage. It clamps OGL's *ideal* acceleration request to what the airframe can
 physically and safely execute, so guidance never has to know the limits (Interface

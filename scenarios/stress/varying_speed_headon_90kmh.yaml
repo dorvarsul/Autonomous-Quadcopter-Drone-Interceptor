@@ -1,0 +1,17 @@
+# High-speed head-on shot: the target bears down the X axis ramping to 25 m/s (90 km/h),
+# certifying the MAX_TARGET_SPEED_MIN_KMH = 83.6 km/h KPI with margin. Head-on geometry
+# gives a high closing speed so the from-rest interceptor can meet it.
+name: varying_speed_headon_90kmh
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 12.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: varying_speed
+  start_position_m: [30.0, 2.0, 4.0]
+  heading: [-1.0, -0.05, -0.05]
+  initial_speed_m_s: 8.0
+  peak_speed_m_s: 25.0
+  ramp_duration_s: 3.0

@@ -1,4 +1,4 @@
-"""MuJoCo interceptor plant (Role 1, Phase 1 — T1.1 / T1.2 / T1.8).
+"""MuJoCo interceptor plant (Role 1).
 
 The concrete :class:`Plant`: it loads ``models/scene.xml``, applies the rotor wrench
 from the :class:`RotorActuatorModel` (plus an optional reproducible wind force) as an
@@ -137,7 +137,7 @@ class MujocoPlant(Plant):
             self._data.qvel[self._dof_adr + 3 : self._dof_adr + 6], dtype=np.float64
         )
 
-    # ------------------------------------------------------- Phase 1 extras (concrete)
+    # ------------------------------------------------------- Concrete-plant extras
     @property
     def velocity_m_s(self) -> NDArray[np.float64]:
         """World-frame linear velocity [m/s], finite-differenced from world position."""
