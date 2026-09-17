@@ -22,6 +22,55 @@ lives, and how its Definition of Done was verified.
 
 ---
 
+## Addendum — F4-1 resolved (branch `fix/f4-1-saturation-tail`)
+
+> The F4-1 command-saturation finding filed below has since been worked. Investigating it
+> **overturned two of this report's assumptions**, so the numbers in the tables further down
+> are the Phase-4-era measurements and are superseded by the honest ones here.
+
+**Finding 1 — the command-saturation KPI was undercounting.** The `saturated` flag written to
+the run log counted **only the command limiter**; motor-mixer (actuator) saturation was logged
+loudly but never counted, nor even stored as a column. So the *airframe* could be saturated
+while the KPI stayed green — the "hidden saturation" AGENTS.md forbids. Concretely,
+`varying_speed_headon_90kmh` **passed at 4.6%** on the old metric but was truly **15.7%**
+saturated (almost all in the mixer). The KPI now counts **limiter OR mixer** (orchestrator
+`_log_row`; `MotorCommand.saturated`), with per-stage `limiter_saturated` / `mixer_saturated`
+columns for attribution. This makes the reported number *worse but honest*: the true baseline
+saturation compliance over the randomized batch was **~40%**, not the 74% below.
+
+**Finding 2 — the saturation was not a launch transient** (as the F4-1 note below assumed). On
+the hard short engagements it is (a) **mid-course horizontal pinning** against the tilt cap and
+(b) **mixer min-clamping**: at low collective thrust the allocation drives a rotor below 0 RPM
+to make roll/pitch torque, even though the rotors sit at only ~5–7k of 25k RPM.
+
+**Fix (three parts, all verified no-miss-regression):**
+1. **Honest measurement** — saturation KPI = limiter ∪ mixer (above).
+2. **`max_tilt_rad` 60° → 70°** — the thrust-projection commit removed the Z-overshoot that
+   made Phase 4 reject >60°, so the extra horizontal authority (`g·tan70`=27 vs 17 m/s²) is now
+   free of the static-overshoot side effect (verified unchanged). Plus a new inner-loop
+   **angular-acceleration clamp** (`max_angular_accel_rad_s2`=70, the hover-feasible ceiling) so
+   a large slew is rate-limited instead of demanding infeasible torque.
+3. **Attitude-priority motor mixer** — when the allocation would drive a rotor below 0 N, the
+   mixer now raises the collective uniformly (preserving every torque differential) instead of
+   clipping the rotor, spending the large RPM headroom to keep attitude authority. Saturation is
+   flagged only for the *true* actuator ceiling (a rotor over MAX RPM).
+
+**Result (honest metric, canonical 100-trial batch, seed 0):**
+
+| Metric | Old Phase 4 (limiter-only) | Honest baseline | **After F4-1 fix** |
+| :--- | :--- | :--- | :--- |
+| Mission success (interception) | 93% | ~92% | **95%** |
+| Command-saturation compliance | 74% *(undercounted)* | ~40% *(honest)* | **77% (honest)** |
+| Z-overshoot compliance | 95% | — | **98%** |
+| Static/linear suite | 11/11 | — | **11/11 (honest)** |
+
+The residual ~23% saturation is the genuine physical tail: 85+ km/h crossing/quartering targets
+intercepted from rest in ~2 s (e.g. `varying_speed_crossing_84kmh` fell 40.2% → 5.8%). That is a
+real actuator-authority edge, honestly reported, not a measurement artifact. `pytest` 221 passed;
+`ruff` clean.
+
+---
+
 ## How to reproduce the verification
 
 ```powershell
@@ -176,7 +225,7 @@ Triaged residual failures from the canonical batch (reproducible by seed + trial
 
 | Finding | Regime | Owning role | Note |
 | :--- | :--- | :--- | :--- |
-| **F4-1 Saturation on short high-speed intercepts** | fast `varying_speed` / fast `sinusoidal` intercepting in < 2 s | Role 3/4 | The from-rest launch transient is a fixed-duration burst; over a ~1 s engagement it is a large *fraction*, so the ≤ 5% KPI is exceeded even though the intercept is clean. Proper fix is an **adaptive-authority / launch-shaping** refinement (guidance/limiter logic) — out of scope for this params-only pass. |
+| **F4-1 Saturation on short high-speed intercepts** ✅ *resolved — see the Addendum above* | fast `varying_speed` / fast `sinusoidal` intercepting in < 2 s | Role 3/4 | ~~The from-rest launch transient is a fixed-duration burst…~~ **Correction (F4-1 fix):** the saturation is *not* a launch transient — it is mid-course tilt-cap pinning plus motor-mixer min-clamping, and the KPI was undercounting by ignoring the mixer. Fixed via honest limiter∪mixer counting, 70° tilt + an inner-loop angular-accel clamp, and an attitude-priority mixer; honest batch saturation compliance 40% → 77%. |
 | **F4-2 Fast off-axis misses** | `varying_speed` > ~85 km/h with crossing/quartering component | Role 3 | A from-rest interceptor cannot lead the fastest strongly-crossing targets; this is the physical degradation edge, not a defect. A **target-acceleration feed-forward (augmented ZEM)** is the candidate guidance improvement (explicitly deferred). |
 | **F4-3 Far-static time budget** | static targets beyond ~12 m | Role 3 | The 10 s static KPI is tight from rest at long range; interception still succeeds, only the time metric slips. |
 - Role 5 did **not** edit any other layer's logic; findings are handed off with reproduction
