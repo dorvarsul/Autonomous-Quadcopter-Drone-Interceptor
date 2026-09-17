@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from interceptor.common.types import (
     AccelerationCommand,
     AttitudeReference,
+    BodyTorqueThrustCommand,
     LimitedAccelerationCommand,
     MotorCommand,
 )
@@ -52,24 +53,27 @@ class PassThroughOuterLoop(OuterLoopController):
 
 
 class PassThroughInnerLoop(InnerLoopController):
-    """Returns the desired attitude unchanged (no rate correction). Placeholder."""
+    """Emits zero body torque and zero thrust (no rate correction). Placeholder."""
 
     def track(
         self,
         reference: AttitudeReference,
         body_rates_rad_s: NDArray[np.float64],
-    ) -> AttitudeReference:
-        return reference
+    ) -> BodyTorqueThrustCommand:
+        return BodyTorqueThrustCommand(
+            torque_body_n_m=np.zeros(3, dtype=np.float64),
+            thrust_n=reference.thrust_n,
+        )
 
 
 class UniformMotorMixer(MotorMixer):
-    """Emits four equal hover-RPM values, ignoring attitude. Placeholder.
+    """Emits four equal hover-RPM values, ignoring the command. Placeholder.
 
     Stays safely within the RPM saturation band; it does not implement the real mixing
     matrix that distributes thrust/torque across rotors.
     """
 
-    def mix(self, reference: AttitudeReference) -> MotorCommand:
+    def mix(self, command: BodyTorqueThrustCommand) -> MotorCommand:
         return MotorCommand(
             rotor_rpm=np.full(4, _STUB_HOVER_RPM, dtype=np.float64)
         )

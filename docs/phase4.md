@@ -18,7 +18,7 @@
 ## Entry Criteria
 
 - Phase 3 complete: KPI + scenario tooling in place; static and linear KPIs met with
-  OGL; PN/APN/OGL benchmark documented; regression suite green.
+  OGL; OGL characterization + `b`-ablation documented; regression suite green.
 
 ## Exit Criteria (Definition of Done for the phase)
 
@@ -89,7 +89,7 @@
 - [ ] Produce the consolidated final report: every KPI vs its target (5% margin),
       success rate, max speed, and representative plots (trajectories, altitude, command
       effort, miss-distance distributions).
-- [ ] Include the Phase 3 PN/APN/OGL comparison context for completeness.
+- [ ] Include the Phase 3 OGL characterization / `b`-ablation context for completeness.
 - [ ] **DoD:** a single authoritative report in `results/` summarizes final performance
       faithfully, surfacing any KPI that still misses.
 

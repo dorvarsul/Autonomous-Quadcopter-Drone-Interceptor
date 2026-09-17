@@ -82,8 +82,8 @@ Workshop_Autonomous_Systems/
 | :--- | :--- | :--- | :--- | :--- |
 | 0 | [phase0.md](./phase0.md) | (pre-Phase-1 setup) | Role 6 (Integration Architect) | Repo scaffold, env verified, shared constants, data contracts, interfaces, deterministic logging, end-to-end stub pipeline runs headless |
 | 1 | [phase1.md](./phase1.md) | Jun 17 – Jun 30 | Role 1 (Simulation) | MuJoCo world, quad + target models, sensor noise/latency, trajectory generators, wind, off-screen rendering, opt-in interactive replay viewer (T1.10) |
-| 2 | [phase2.md](./phase2.md) | Jul 1 – Jul 15 | Roles 2, 3, 4 | EKF, OGL (+PN/APN baselines), command limiter, dual-loop control, motor mixer, wired pipeline |
-| 3 | [phase3.md](./phase3.md) | Jul 16 – Aug 5 | Role 5 (+ owning roles tune) | KPI + scenario tooling, static & linear trials, parameter tuning, PN/APN/OGL benchmark |
+| 2 | [phase2.md](./phase2.md) | Jul 1 – Jul 15 | Roles 2, 3, 4 | EKF, OGL, command limiter, dual-loop control, motor mixer, wired pipeline |
+| 3 | [phase3.md](./phase3.md) | Jul 16 – Aug 5 | Role 5 (+ owning roles tune) | KPI + scenario tooling, static & linear trials, OGL parameter tuning |
 | 4 | [phase4.md](./phase4.md) | Aug 6 – Aug 20 | Role 5 (Test/KPI) | Sinusoidal/varying-speed/windy trials, randomized 3D Monte-Carlo, final KPI dataset |
 
 ## 6. KPI Success Criteria (5% Margin)

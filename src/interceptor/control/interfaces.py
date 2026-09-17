@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from interceptor.common.types import (
     AccelerationCommand,
     AttitudeReference,
+    BodyTorqueThrustCommand,
     LimitedAccelerationCommand,
     MotorCommand,
 )
@@ -52,7 +53,9 @@ class InnerLoopController(ABC):
     """~400 Hz inner loop: track the target attitude using gyro feedback.
 
     Owned by Role 4. Takes the desired attitude and the measured body rates (gyro) and
-    returns the attitude/thrust command actually handed to the mixer.
+    returns the **body torque + thrust** command handed to the mixer. It emits torque
+    (not an attitude) because that is the physical quantity the rotors produce; the
+    dedicated :class:`BodyTorqueThrustCommand` keeps torque out of angle-named fields.
     """
 
     @abstractmethod
@@ -60,16 +63,16 @@ class InnerLoopController(ABC):
         self,
         reference: AttitudeReference,
         body_rates_rad_s: NDArray[np.float64],
-    ) -> AttitudeReference:
-        """Return the rate-corrected attitude command for the motor mixer."""
+    ) -> BodyTorqueThrustCommand:
+        """Return the body torque + thrust command for the motor mixer."""
 
 
 class MotorMixer(ABC):
-    """Convert roll/pitch/yaw/thrust into four rotor RPMs within saturation limits.
+    """Convert body torque + thrust into four rotor RPMs within saturation limits.
 
     Owned by Role 4. Guarantees outputs stay within [MOTOR_RPM_MIN, MOTOR_RPM_MAX].
     """
 
     @abstractmethod
-    def mix(self, reference: AttitudeReference) -> MotorCommand:
-        """Return the four rotor RPM commands for the given attitude+thrust."""
+    def mix(self, command: BodyTorqueThrustCommand) -> MotorCommand:
+        """Return the four rotor RPM commands for the given body torque + thrust."""

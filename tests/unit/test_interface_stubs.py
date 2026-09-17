@@ -7,6 +7,7 @@ import numpy as np
 from interceptor.common.types import (
     AccelerationCommand,
     AttitudeReference,
+    BodyTorqueThrustCommand,
     LimitedAccelerationCommand,
     MotorCommand,
     RawSensorMeasurement,
@@ -101,15 +102,17 @@ def test_limiter_reports_no_saturation_for_stub():
 
 
 def test_mixer_outputs_four_rpms_within_limits():
-    ref = AttitudeReference(roll_rad=0.0, pitch_rad=0.0, yaw_rad=0.0, thrust_n=0.0)
-    cmd = UniformMotorMixer().mix(ref)
+    cmd_in = BodyTorqueThrustCommand(torque_body_n_m=np.zeros(3), thrust_n=0.0)
+    cmd = UniformMotorMixer().mix(cmd_in)
     assert isinstance(cmd, MotorCommand)
     assert cmd.rotor_rpm.shape == (4,)
     assert np.all(cmd.rotor_rpm >= constants.MOTOR_RPM_MIN)
     assert np.all(cmd.rotor_rpm <= constants.MOTOR_RPM_MAX)
 
 
-def test_inner_loop_passes_attitude_through():
+def test_inner_loop_stub_emits_zero_torque_and_passes_thrust():
     ref = AttitudeReference(roll_rad=0.1, pitch_rad=0.2, yaw_rad=0.3, thrust_n=1.0)
     out = PassThroughInnerLoop().track(ref, np.zeros(3))
-    assert out is ref
+    assert isinstance(out, BodyTorqueThrustCommand)
+    np.testing.assert_array_equal(out.torque_body_n_m, np.zeros(3))
+    assert out.thrust_n == 1.0

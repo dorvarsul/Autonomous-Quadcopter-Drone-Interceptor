@@ -6,8 +6,9 @@ exactly one arrow in the 6-stage pipeline contract (AGENTS.md → Pipeline Contr
     Simulation  --RawSensorMeasurement-->        Estimation
     Estimation  --TargetStateEstimate-->         Guidance
     Guidance    --AccelerationCommand-->         Command Limiter
-    Cmd Limiter --LimitedAccelerationCommand-->  Flight Control (outer->inner)
-    Flight Ctrl --AttitudeReference-->           Motor Mixer
+    Cmd Limiter --LimitedAccelerationCommand-->  Flight Control (outer)
+    Outer loop  --AttitudeReference-->           Flight Control (inner)
+    Inner loop  --BodyTorqueThrustCommand-->     Motor Mixer
     Motor Mixer --MotorCommand-->                Simulation (actuators)
 
 Every message is a frozen dataclass; array fields are stored read-only (``freeze``) so
@@ -74,6 +75,13 @@ class TargetStateEstimate:
     angular_rates_rad_s: NDArray[np.float64]  # body angular rates [rad/s]
     covariance: NDArray[np.float64]  # state estimate covariance [units^2], square
     quality: float  # scalar estimate quality in [0, 1]; 1 = fully confident
+    # Relative acceleration (target - interceptor), world frame [m/s^2]. Feeds OGL's
+    # augmented Zero-Effort-Miss term so evasive/maneuvering targets are handled. Optional
+    # with a zero default so the Phase 0 pass-through estimator (which does not estimate
+    # acceleration) still satisfies the contract; the Phase 2 EKF fills it in.
+    relative_acceleration_m_s2: NDArray[np.float64] = field(
+        default_factory=lambda: np.zeros(3, dtype=np.float64)
+    )
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -107,6 +115,15 @@ class TargetStateEstimate:
             )
         object.__setattr__(self, "covariance", guards.freeze(cov))
         guards.ensure_in_range("quality", self.quality, 0.0, 1.0)
+        object.__setattr__(
+            self,
+            "relative_acceleration_m_s2",
+            guards.freeze(
+                guards.ensure_vector(
+                    "relative_acceleration_m_s2", self.relative_acceleration_m_s2, 3
+                )
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -167,6 +184,29 @@ class AttitudeReference:
         guards.ensure_finite("roll_rad", self.roll_rad)
         guards.ensure_finite("pitch_rad", self.pitch_rad)
         guards.ensure_finite("yaw_rad", self.yaw_rad)
+        guards.ensure_in_range("thrust_n", self.thrust_n, 0.0, np.inf)
+
+
+@dataclass(frozen=True)
+class BodyTorqueThrustCommand:
+    """Flight Control (inner) -> Motor Mixer. Desired body torques + collective thrust.
+
+    The inner-loop attitude/rate PID outputs the moments the airframe should generate,
+    not an attitude. A dedicated message keeps torque out of the angle-named fields of
+    :class:`AttitudeReference` (Clean Code -> meaningful domain names). Torque axes follow
+    the body frame convention in :mod:`common.frames` (roll about +X, pitch about +Y, yaw
+    about +Z); the mixer inverts the Phase 1 rotor model to realize them within RPM limits.
+    """
+
+    torque_body_n_m: NDArray[np.float64]  # [roll, pitch, yaw] body torque [N*m]
+    thrust_n: float  # total collective thrust [N], >= 0
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "torque_body_n_m",
+            guards.freeze(guards.ensure_vector("torque_body_n_m", self.torque_body_n_m, 3)),
+        )
         guards.ensure_in_range("thrust_n", self.thrust_n, 0.0, np.inf)
 
 

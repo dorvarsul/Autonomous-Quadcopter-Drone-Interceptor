@@ -31,21 +31,27 @@ from interceptor.common.types import (
 )
 from interceptor.config import constants
 from interceptor.config.params import Params, default_params
+from interceptor.control.command_limiter import AccelerationCommandLimiter
+from interceptor.control.inner_loop import AttitudePidInnerLoop
 from interceptor.control.interfaces import (
     CommandLimiter,
     InnerLoopController,
     MotorMixer,
     OuterLoopController,
 )
+from interceptor.control.motor_mixer import QuadMotorMixer
+from interceptor.control.outer_loop import DifferentialFlatnessOuterLoop
 from interceptor.control.stubs import (
     PassThroughInnerLoop,
     PassThroughLimiter,
     PassThroughOuterLoop,
     UniformMotorMixer,
 )
+from interceptor.estimation.ekf import ExtendedKalmanFilter
 from interceptor.estimation.interfaces import Estimator
 from interceptor.estimation.stubs import PassThroughEstimator
 from interceptor.guidance.interfaces import GuidanceLaw
+from interceptor.guidance.ogl import OptimalGuidanceLaw
 from interceptor.guidance.stubs import ZeroGuidance
 from interceptor.pipeline.scheduler import MultiRateScheduler
 from interceptor.simulation.interfaces import (
@@ -54,12 +60,14 @@ from interceptor.simulation.interfaces import (
     SensorModel,
     TargetTrajectory,
 )
+from interceptor.simulation.sensors.noisy_sensor import NoisyDelayedSensorModel
 from interceptor.simulation.stubs import (
     IdealSensorModel,
     NullRenderer,
     StaticTargetTrajectory,
     StationaryPlant,
 )
+from interceptor.simulation.trajectories.generators import StaticTrajectory
 
 # Columns of the per-step run log. Fixed order => deterministic CSV.
 # The pose columns (interceptor quaternion + target position) make a run replayable in
@@ -127,6 +135,42 @@ class PipelineComponents:
             renderer=NullRenderer(),
         )
 
+    @staticmethod
+    def phase2_intercept(
+        rng: RngFactory,
+        params: Params,
+        *,
+        interceptor_position_m: np.ndarray,
+        target_position_m: np.ndarray,
+        scene_path: str | Path | None = None,
+    ) -> PipelineComponents:
+        """Real Phase 2 wiring: MuJoCo plant + noisy sensor + EKF + OGL + control + mixer.
+
+        This is the closed loop the Phase 2 exit criterion exercises (static-target
+        interception). Every slot is a real implementation behind the same interface the
+        stubs satisfied, so the orchestrator itself is unchanged (Open/Closed). MuJoCo is
+        imported lazily so importing this module never requires the physics engine.
+        """
+        # Lazy import: keeps the stub path (and non-mujoco tests) free of the native dep.
+        from interceptor.simulation.mujoco_plant import DEFAULT_SCENE_PATH, MujocoPlant
+
+        plant = MujocoPlant(
+            scene_path=scene_path or DEFAULT_SCENE_PATH,
+            initial_position_m=np.asarray(interceptor_position_m, dtype=np.float64),
+        )
+        return PipelineComponents(
+            trajectory=StaticTrajectory(np.asarray(target_position_m, dtype=np.float64)),
+            sensor=NoisyDelayedSensorModel(params.sensor, rng.stream("sensor")),
+            estimator=ExtendedKalmanFilter(params.ekf),
+            guidance=OptimalGuidanceLaw(params.guidance),
+            limiter=AccelerationCommandLimiter(params.limiter),
+            outer_loop=DifferentialFlatnessOuterLoop(),
+            inner_loop=AttitudePidInnerLoop(params.control),
+            mixer=QuadMotorMixer(),
+            plant=plant,
+            renderer=NullRenderer(),
+        )
+
 
 @dataclass(frozen=True)
 class RunResult:
@@ -159,11 +203,26 @@ class StubOrchestrator:
             guidance_hz=constants.GUIDANCE_HZ,
         )
 
-    def run(self, num_steps: int, run_dir: Path, run_id: str = "phase0_stub") -> RunResult:
+    def run(
+        self,
+        num_steps: int,
+        run_dir: Path,
+        run_id: str = "phase0_stub",
+        *,
+        terminate_on_intercept: bool = False,
+        capture_radius_m: float = constants.INTERCEPT_CAPTURE_RADIUS_M,
+    ) -> RunResult:
         """Execute the loop headlessly and return a :class:`RunResult`.
 
         Enforces the headless guarantee up front: a non-headless renderer is a defect in
         an automated run and fails loud (AGENTS.md → no hanging GLFW window).
+
+        ``num_steps`` is the *maximum* duration. When ``terminate_on_intercept`` is set,
+        the run stops at closest approach — once the true interceptor↔target range has
+        come within ``capture_radius_m`` and then starts increasing, the engagement is
+        over (Role 5/6). The last logged frame is exactly that closest-approach point, so
+        no physically meaningless post-intercept flyby is recorded. Off by default so the
+        Phase 0/2 fixed-duration runs and their determinism tests are unaffected.
         """
         if not self._components.renderer.is_headless:
             raise RuntimeError(
@@ -189,6 +248,8 @@ class StubOrchestrator:
         )
 
         dt = 1.0 / constants.SIM_HZ
+        # Each layer is advanced with the elapsed time for *its own* rate, not the sim dt.
+        estimation_dt = 1.0 / constants.ESTIMATION_HZ
         c = self._components
 
         # State carried across ticks (slower loops reuse their latest output).
@@ -197,15 +258,43 @@ class StubOrchestrator:
         desired_attitude: AttitudeReference | None = None
         motor_command = MotorCommand(rotor_rpm=np.full(4, constants.MOTOR_RPM_MIN))
 
+        # Engagement-termination state (closest-approach detection).
+        previous_range_m: float | None = None
+        capture_armed = False
+        steps_completed = 0
+
         with RunLogger(run_dir, LOG_FIELDS) as logger:
             for tick in self._scheduler.ticks(num_steps):
                 interceptor_pos = c.plant.position_m
                 target_pos = c.trajectory.position_at(tick.sim_time_s)
 
+                # --- Engagement termination (Role 5/6) -------------------------------
+                # Stop at closest approach: once inside the capture radius, the first
+                # frame where the range grows means the previous (already-logged) frame
+                # was the intercept point. Break *before* stepping/logging this receding
+                # frame so the log ends exactly at closest approach.
+                if terminate_on_intercept:
+                    true_range_m = float(np.linalg.norm(target_pos - interceptor_pos))
+                    if true_range_m <= capture_radius_m:
+                        capture_armed = True
+                    if (
+                        capture_armed
+                        and previous_range_m is not None
+                        and true_range_m > previous_range_m
+                    ):
+                        break
+                    previous_range_m = true_range_m
+
+                # Drive the kinematic target body (mocap) so a real plant renders/replays
+                # the target; stub plants without this method are unaffected.
+                set_target_pose = getattr(c.plant, "set_target_pose", None)
+                if set_target_pose is not None:
+                    set_target_pose(target_pos)
+
                 # --- Estimation (consumes ONLY the raw sensor measurement) -----------
                 if tick.run_estimation:
                     measurement = c.sensor.measure(interceptor_pos, target_pos, tick.sim_time_s)
-                    estimate = c.estimator.update(measurement, dt)
+                    estimate = c.estimator.update(measurement, estimation_dt)
 
                 # --- Guidance + Command Limiter (consume ONLY the estimate) ----------
                 if tick.run_guidance and estimate is not None:
@@ -240,9 +329,10 @@ class StubOrchestrator:
                         motor_command,
                     )
                 )
+                steps_completed += 1
 
         return RunResult(
-            num_steps=num_steps,
+            num_steps=steps_completed,
             run_dir=run_dir,
             log_path=run_dir / "run_log.csv",
             snapshot_path=snapshot_path,

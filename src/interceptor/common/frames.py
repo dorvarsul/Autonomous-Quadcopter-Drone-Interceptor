@@ -119,6 +119,35 @@ def quat_to_euler(q: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.array([roll, pitch, yaw], dtype=np.float64)
 
 
+def los_rate_from_relative(
+    relative_position_world: NDArray[np.float64],
+    relative_velocity_world: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """LOS angular rate ``[azimuth_rate, elevation_rate]`` [rad/s] from relative pos/vel.
+
+    Pure geometry (no ground truth): the same analytic derivative documented in the
+    simulation-layer kinematics, exposed here in ``common`` so the Estimation layer can
+    turn its *filtered* relative position/velocity estimate into a clean LOS rate for
+    Guidance without importing the Simulation layer. Returns a zero azimuth rate when the
+    target is near-vertical (horizontal radius ~0), where azimuth is ill-conditioned.
+
+    See the module docstring for the sign convention (Guidance nulls this rate).
+    """
+    r = np.asarray(relative_position_world, dtype=np.float64)
+    v = np.asarray(relative_velocity_world, dtype=np.float64)
+    rx, ry, rz = float(r[X]), float(r[Y]), float(r[Z])
+    vx, vy, vz = float(v[X]), float(v[Y]), float(v[Z])
+    horizontal_sq = rx * rx + ry * ry
+    horizontal = float(np.sqrt(horizontal_sq))
+    range_sq = float(rx * rx + ry * ry + rz * rz)
+    if horizontal < 1e-9 or range_sq < 1e-18:
+        return np.zeros(2, dtype=np.float64)
+    azimuth_rate = (rx * vy - ry * vx) / horizontal_sq
+    dh_dt = (rx * vx + ry * vy) / horizontal
+    elevation_rate = (horizontal * vz - rz * dh_dt) / range_sq
+    return np.array([azimuth_rate, elevation_rate], dtype=np.float64)
+
+
 def los_angles(relative_position_world: NDArray[np.float64]) -> tuple[float, float]:
     """LOS azimuth and elevation [rad] for a world-frame interceptor->target vector.
 
