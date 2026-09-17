@@ -12,8 +12,9 @@ Design intent:
  - :func:`load_params` merges a YAML override on top of the defaults, so a scenario
    file can change tuning without editing code.
 
-Constraint (AGENTS.md → Workflow): changing a KPI-affecting tuning value in a way
-that is committed as a new default requires user confirmation.
+Constraint (ENGINEERING_STANDARDS.md → Configuration discipline): committing a new
+default for a KPI-affecting tuning value is a deliberate change — it carries an inline
+rationale and the full suite is re-run and reported honestly.
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ class EkfParams:
     # Initial state covariance scale [dimensionless multiplier on the unit prior].
     initial_covariance_scale: float = 10.0
     # Innovation/covariance divergence guard: if the covariance trace exceeds this, the
-    # filter has diverged and must fail loud rather than emit garbage (AGENTS.md).
+    # filter has diverged and must fail loud rather than emit garbage (ENGINEERING_STANDARDS.md).
     divergence_covariance_trace_max: float = 1.0e9
 
 
@@ -72,8 +73,9 @@ class ControlParams:
     rotor-drag differential (``kQ``), which is ~100x weaker than the arm-lever roll/pitch
     torque (``kT * arm``), so a large yaw gain would demand physically impossible rotor
     differentials and saturate all four motors. Yaw does not affect interception (the quad
-    translates by tilting), so a gentle yaw hold is sufficient. The outer loop is
-    algebraic (flatness) so its gains are unused placeholders for now.
+    translates by tilting), so a gentle yaw hold is sufficient. The outer loop needs no
+    gains at all: it is algebraic (differential flatness), mapping the commanded
+    acceleration straight to attitude + thrust.
     """
 
     # Inner loop (~400 Hz) attitude PDs, one per body axis (ki reserved for future use).
@@ -91,13 +93,14 @@ class ControlParams:
     # 0.15*4.9/0.01. Clamping the command to this envelope makes a large slew a proper
     # rate-limited turn instead of an infeasible torque spike the mixer would clamp (actuator
     # saturation). Small tracking errors stay far under the cap, so steady tracking (and OGL's
-    # first-order tilt-lag model) is unchanged. Tuning (Role 4, user-approved): set to 70.0,
+    # first-order tilt-lag model) is unchanged. Tuning (Role 4): set to 70.0,
     # right at the hover authority — over a 60-trial randomized batch this lifts *honest*
     # command-saturation compliance from 40% to ~62% and nudges mission success 91.7%->93.3%
     # with no time-to-intercept regression; going lower (<=50) starts slowing intercepts (time
-    # and mission both regress) for little further saturation gain. See the F4-1 fix notes.
+    # and mission both regress) for little further saturation gain. See RESULTS.md (L1).
     max_angular_accel_rad_s2: float = 70.0
-    # Outer loop (~50 Hz) attitude-reference PIDs (unused; flatness map needs no gains yet).
+    # Outer loop (~50 Hz) attitude-reference PIDs. Present for completeness and kept at
+    # zero: the flatness map is algebraic, so the outer loop needs no feedback gains.
     outer_xy: PidGains = field(default_factory=PidGains)
     outer_z: PidGains = field(default_factory=PidGains)
 
@@ -119,7 +122,7 @@ class GuidanceParams:
     # produces a closing command (ZEM trajectory-shaping).
     time_to_go_min_s: float = 0.05
     time_to_go_max_s: float = 30.0
-    # Tuning (user-approved): 4.25 m/s. From rest OGL has no true closing speed, so it
+    # Tuning: 4.25 m/s. From rest OGL has no true closing speed, so it
     # synthesizes t_go from this reference to shape the launch command; a higher reference
     # means a smaller t_go and a more aggressive (faster) launch. Earlier this was held down
     # at 3.5 because an aggressive launch made the airframe overshoot in Z on same-altitude
@@ -145,18 +148,19 @@ class GuidanceParams:
 class LimiterParams:
     """Command-limiter bounds (Role 4, SAFETY)."""
 
-    # Max commandable linear acceleration magnitude [m/s^2]. Tuning (user-approved,
-    # params-only): raised 30 -> 40. The total-magnitude cap only binds on the most aggressive
+    # Max commandable linear acceleration magnitude [m/s^2]. Tuning (params-only):
+    # raised 30 -> 40. The total-magnitude cap only binds on the most aggressive
     # climbing dashes (the tilt cap below governs the horizontal component first); 40 m/s^2
     # gives the fast-target/evasive engagements headroom before clamping while staying far
     # inside the airframe's ~250 m/s^2 collective-thrust capacity. NOTE: this bounds the
     # *linear* command, not the *attitude* command -- the motor mixer can still saturate on the
     # torque needed for an aggressive tilt slew even when this cap is not binding (it drives a
     # rotor below 0 RPM, not to max), which is why that saturation is now counted in the KPI
-    # (orchestrator) and curbed at its source by the inner-loop angular-accel clamp. See F4-1.
+    # (orchestrator) and curbed at its source by the inner-loop angular-accel clamp.
+    # See RESULTS.md (L1).
     max_acceleration_m_s2: float = 40.0
     # Max commandable tilt angle [rad]. Tuning history: 0.6109 (35 deg) -> 0.7854 (45 deg) ->
-    # 1.0472 (60 deg), then (user-approved) 1.0472 (60 deg) -> 1.2217 (70 deg). The horizontal
+    # 1.0472 (60 deg), then 1.0472 (60 deg) -> 1.2217 (70 deg). The horizontal
     # acceleration authority is g*tan(max_tilt); the fast crossing/quartering geometries pin
     # against it mid-course, the dominant command-saturation source. 60 deg gave g*tan60 =
     # 17.0 m/s^2; 70 deg raises it to g*tan70 = 27.0 m/s^2, roughly halving the *honest*
@@ -166,7 +170,8 @@ class LimiterParams:
     # inner-loop thrust projection (see control/inner_loop), so with the coupling gone 70 deg
     # no longer regresses static Z-overshoot (verified: static_high/far/diagonal unchanged at
     # <= 0.013 m). The vertical thrust component cos(70) = 0.34 is still covered by the thrust
-    # headroom. Paired with the inner-loop angular-accel clamp (ControlParams). See F4-1 notes.
+    # headroom. Paired with the inner-loop angular-accel clamp (ControlParams).
+    # See RESULTS.md (L1).
     max_tilt_rad: float = 1.2217
 
 
@@ -175,9 +180,10 @@ class SensorParams:
     """Sensor noise/latency profile (Role 1).
 
     These are *intentional* corruptions of the ground-truth geometry — the EKF exists
-    to fight exactly this noise and delay (AGENTS.md → Role 1 must not sanitize signals
-    for downstream convenience). A sensor model must be handed an explicit profile; the
-    defaults below are a deliberate, documented baseline, not "no noise".
+    to fight exactly this noise and delay (ENGINEERING_STANDARDS.md → Role 1 must not
+    sanitize signals for downstream convenience). A sensor model must be handed an
+    explicit profile; the defaults below are a deliberate, documented baseline, not
+    "no noise".
     """
 
     # Per-channel zero-mean Gaussian noise standard deviations.

@@ -3,7 +3,7 @@
 The EKF is the Estimation stage: it consumes ONLY the raw, noisy, delayed
 :class:`RawSensorMeasurement` (range + LOS azimuth/elevation) and produces a clean,
 latency-compensated :class:`TargetStateEstimate` for Guidance. It never reads
-ground-truth state (AGENTS.md → Pipeline Contract).
+ground-truth state (ENGINEERING_STANDARDS.md → Pipeline Contract).
 
 State model
 -----------
@@ -35,13 +35,13 @@ Each measurement is stamped with its generation time and age (the sensor latency
 The filter keeps its state synchronized to the measurement generation time and, for the
 value it publishes to Guidance, predicts that post-update state **forward by the
 latency** so Guidance sees an estimate valid at the current wall-clock instant, not a
-stale one (AGENTS.md → Role 2 must compensate sensor latency).
+stale one (ENGINEERING_STANDARDS.md → Role 2 must compensate sensor latency).
 
 Fail loud
 ---------
 Non-finite states or a covariance-trace blow-up raise
 :class:`~interceptor.common.guards.NumericalInstabilityError` rather than emitting
-silent garbage (AGENTS.md → fail loud; EKF divergence must surface).
+silent garbage (ENGINEERING_STANDARDS.md → fail loud; EKF divergence must surface).
 """
 
 from __future__ import annotations

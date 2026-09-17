@@ -1,8 +1,8 @@
 """Fail-loud guards shared by every layer.
 
-Core value (AGENTS.md): *fail loud, not silent*. NaN/Inf, divergence, and out-of-range
-states must raise immediately rather than propagate quietly through the pipeline and
-corrupt a run's results. Any layer may import these.
+Core value (ENGINEERING_STANDARDS.md): *fail loud, not silent*. NaN/Inf, divergence,
+and out-of-range states must raise immediately rather than propagate quietly through
+the pipeline and corrupt a run's results. Any layer may import these.
 """
 
 from __future__ import annotations

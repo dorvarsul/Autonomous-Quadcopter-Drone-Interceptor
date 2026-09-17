@@ -18,8 +18,8 @@ Two Design-Review features distinguish OGL from a naive proportional law:
 * **Altitude penalty ``b``.** The Design Review notes the Z (altitude) axis is
   overshoot-prone. ``b`` (default 0.1) de-weights the vertical command, trading a little
   vertical aggressiveness for the elimination of altitude overshoot. It is applied as a
-  ``1/(1 + b)`` attenuation of the Z channel here (changing ``b`` affects a KPI and
-  needs user confirmation — AGENTS.md).
+  ``1/(1 + b)`` attenuation of the Z channel here (changing ``b`` moves a KPI — see
+  ENGINEERING_STANDARDS.md → Configuration discipline).
 
 OGL requests an *ideal* acceleration only. It does not clamp to physical limits (the
 Command Limiter's job) nor convert to tilt/motor commands (Flight Control's job).

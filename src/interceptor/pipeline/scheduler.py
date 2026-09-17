@@ -1,7 +1,7 @@
 """Deterministic multi-rate clock for the pipeline.
 
 Coordinates the sim step and the slower loops (inner 400 Hz, outer 50 Hz, estimation,
-guidance) **without collapsing them** (AGENTS.md → Role 4/Role 6). The two control
+guidance) **without collapsing them** (ENGINEERING_STANDARDS.md → Role 4/Role 6). The two control
 loops keep their distinct rates here.
 
 Determinism: rates are expressed as integer *periods in sim steps*, so a loop fires on

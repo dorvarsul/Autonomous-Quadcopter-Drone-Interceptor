@@ -30,7 +30,7 @@ much easier.
 15. [Testing, KPIs, and scenarios](#15-testing-kpis-and-scenarios)
 16. [The project map, file by file](#16-the-project-map-file-by-file)
 17. [How to run everything](#17-how-to-run-everything)
-18. [Current status and roadmap](#18-current-status-and-roadmap)
+18. [Where it landed, and what it cannot do](#18-where-it-landed-and-what-it-cannot-do)
 19. [Glossary](#19-glossary)
 
 ---
@@ -49,10 +49,12 @@ change its tilt instantly). The whole thing is built out of separate, mathematic
 explainable stages rather than a single "AI brain," on purpose.
 
 It is a university workshop project ("Workshop in Autonomous Systems Simulation") by Dor
-Varsulker, developed in phases. The authoritative design document is
-[`docs/Autonomous_Drone_Interceptor_Design_Review.md`](./Autonomous_Drone_Interceptor_Design_Review.md);
-the engineering rules every contributor (human or AI) follows are in
-[`AGENTS.md`](../AGENTS.md).
+Varsulker. The authoritative design document is
+[`Autonomous_Drone_Interceptor_Design_Review.md`](./Autonomous_Drone_Interceptor_Design_Review.md);
+the engineering rules the code is built to are in
+[`ENGINEERING_STANDARDS.md`](./ENGINEERING_STANDARDS.md); measured performance is in
+[`RESULTS.md`](./RESULTS.md); and [`GETTING_STARTED.md`](./GETTING_STARTED.md) walks you
+through installing and running it.
 
 ---
 
@@ -139,9 +141,9 @@ recover a clean, trustworthy picture of the target's motion.
 
 ### 2.7 Radians
 
-Angles here are in **radians**, not degrees. π radians = 180°. So 60° ≈ 1.047 radians,
-which you'll see as `1.0472` in the code (the maximum tilt, raised from 45° in Phase 4 to
-give the interceptor more authority against fast, evasive targets).
+Angles here are in **radians**, not degrees. π radians = 180°. So 70° ≈ 1.222 radians,
+which you'll see as `1.2217` in the code — the maximum tilt, set that high deliberately to
+give the interceptor horizontal authority against fast, evasive targets.
 
 ---
 
@@ -166,7 +168,7 @@ Architecture**.
                      (back into the Simulation as motor commands)
 ```
 
-The **golden rule** (enforced throughout `AGENTS.md`): **each stage may only read its
+The **golden rule** (see [`ENGINEERING_STANDARDS.md`](./ENGINEERING_STANDARDS.md)): **each stage may only read its
 immediate predecessor's output.** Guidance is *forbidden* from peeking at the raw sensors.
 Control is *forbidden* from reading the true target position. Crossing a boundary — for
 example, letting the estimator "cheat" by reading the simulator's ground-truth target
@@ -176,7 +178,8 @@ whole system explainable.
 Each stage maps to a **role** (Simulation Engineer, Estimation Engineer, Guidance
 Engineer, Flight Control Engineer, Test/KPI Engineer, Integration Architect). The roles
 are a way of assigning ownership and boundaries; you'll see them referenced in the code
-comments (e.g. "Role 3, Phase 2").
+comments (e.g. "Role 3 — Guidance"), and the full mapping is in
+[`ENGINEERING_STANDARDS.md`](./ENGINEERING_STANDARDS.md#role-ownership).
 
 The messages passed between stages are strict, validated data structures (Part 12). They
 are **immutable** and **fail loud** — if any number is `NaN` (not-a-number) or infinity,
@@ -370,7 +373,7 @@ position and (analytically exact) velocity:
 - **Static** — sits at a fixed point. The baseline test.
 - **Linear** — constant velocity straight line: `p(t) = p₀ + v·t`.
 - **Sinusoidal** — a weaving, *evasive* path: straight drift plus a 3D sine wave. This is
-  the stress test for the estimator and guidance (Phase 4).
+  the stress test for the estimator and guidance.
 - **VaryingSpeed** — accelerates from a starting speed up to a peak (e.g. 90 km/h) to test
   the maximum-speed KPI.
 - **WindAffected** — takes any base trajectory and pushes it around with the integral of a
@@ -537,8 +540,9 @@ a_cmd = N' / t_go² · ZEM
 
 The `½·a·t_go²` term is what makes this "augmented" — it folds in the target's estimated
 *acceleration*, letting the law anticipate an evasive, maneuvering target. (This term is
-currently **switched off** — see 8.6 — because against non-maneuvering targets it can
-cause instability; it's Phase 4 work.)
+currently **switched off** — see 8.6 — because with a relative-state EKF it feeds the
+interceptor's own maneuver back as positive feedback; it remains the candidate improvement
+for the fast-crossing tail.)
 
 ### 8.3 Time-to-go: [`time_to_go.py`](../src/interceptor/guidance/time_to_go.py)
 
@@ -555,7 +559,7 @@ So `time_to_go` is carefully conditioned:
   "start accelerating toward it" command.
 - **Clamp** the result to `[0.05 s, 30 s]` to bound the terminal blow-up.
 
-That 3.5 m/s reference was **tuned in Phase 3** (down from 5.0): too high and the launch
+That 3.5 m/s reference was **tuned** (down from 5.0): too high and the launch
 command was so aggressive it saturated the motors in the first 20% of flight; too low and
 the farthest target wasn't reached in time. It's a documented trade-off.
 
@@ -588,13 +592,13 @@ The design review flags **altitude (Z) overshoot** as a recurring problem: inter
 tend to shoot up past the target's height and oscillate back down. OGL includes a tuning
 knob `b` (default **0.1**) that **de-weights the vertical command** — mathematically,
 from an optimization that penalizes vertical control effort. In code it appears as an
-attenuation of the Z channel: `a_cmd_z ·= 1/(1 + b)`. Changing `b` affects a KPI, so it
-requires explicit sign-off.
+attenuation of the Z channel: `a_cmd_z ·= 1/(1 + b)`. Changing `b` moves a KPI, so it is
+a deliberate change that must be re-validated against the suite, never a quiet tweak.
 
-(Interesting Phase-3 finding: with this project's *differential-flatness* controller, the
-drone barely overshoots altitude anyway, so `b`'s measured effect was near-zero. It's kept
-as cheap insurance and to stay faithful to the design review, to be re-evaluated against
-fast evasive targets in Phase 4.)
+(Interesting measured finding: with this project's *differential-flatness* controller, the
+drone barely overshoots altitude anyway, so `b`'s measured effect was near-zero — the
+`scenarios/ablation/` pair is the study that showed it. It's kept as cheap insurance and to
+stay faithful to the design review.)
 
 ### 8.6 Putting it together (`OptimalGuidanceLaw.compute`)
 
@@ -611,8 +615,9 @@ a_cmd[Z] *= 1/(1 + b)                             # altitude penalty
 The **augmented term is gated off** (`use_target_acceleration = False`) for now: the EKF
 estimates *relative* acceleration, which against a non-maneuvering target mostly reflects
 the interceptor's *own* maneuvering — feeding that back would be positive feedback and
-destabilize the loop. Isolating the target's *absolute* acceleration is deferred to Phase
-4 (evasive targets).
+destabilize the loop. Isolating the target's *absolute* acceleration is the open work that
+would unlock it, and it remains the candidate improvement for the fast-crossing tail
+(see [`RESULTS.md`](./RESULTS.md#4-known-limitations)).
 
 OGL sits behind a clean `GuidanceLaw` interface so a future law could be swapped in
 without touching any caller — but per project scope, **OGL is the sole law**.
@@ -629,8 +634,8 @@ produce. The limiter is the **single place** that clamps the request to somethin
 and the single place that **measures saturation**. Two bounds:
 
 - **Tilt limit.** Since horizontal acceleration comes only from tilting, the maximum
-  horizontal acceleration is `g · tan(max_tilt)`. With the Phase-4-tuned max tilt of 60°
-  (1.0472 rad), that's `9.81 · tan(60°) ≈ 17.0 m/s²`. A larger horizontal request is
+  horizontal acceleration is `g · tan(max_tilt)`. With the tuned max tilt of 70°
+  (1.2217 rad), that's `9.81 · tan(70°) ≈ 27.0 m/s²`. A larger horizontal request is
   scaled back to this cap.
 - **Total magnitude limit.** The overall acceleration magnitude is capped at
   `max_acceleration` (40 m/s²) to protect the rotors.
@@ -641,15 +646,17 @@ flight time" is a graded KPI** — being pinned at the limit means you've lost c
 authority, and the project measures exactly how often that happens. Concentrating all
 clamping here (and nowhere else) means saturation is counted in exactly one place.
 
-That tilt limit has been raised twice, each with sign-off: **35° → 45° in Phase 3** (at 35°
-the horizontal authority was only ~6.87 m/s² and cross-range dashes kept hitting it), then
-**45° → 60° in Phase 4** (at 45° = a full `g`, chasing weaving and 90 km/h targets still
-clamped for 15–30% of a short engagement — the dominant saturation-KPI miss on the randomized
-batch). 60° raises horizontal authority to ~17 m/s², which lifted randomized-batch mission
-success from ~57% to **93%**; the total-magnitude cap was raised 30 → 40 m/s² at the same
-time. 60° is the aggressive-but-physical end for an interceptor — going further (65°) began to
-*overshoot* easy static targets. The airframe's ~250 m/s² thrust capacity means these limits
-are real authority, not saturation hidden in the motors.
+That tilt limit was raised in stages, each time driven by a measurement. At the original
+**35°** the horizontal authority was only ~6.87 m/s² and cross-range dashes kept hitting it.
+At **45°** (exactly one `g`) chasing weaving and 90 km/h targets still clamped for 15–30% of a
+short engagement — the dominant saturation-KPI miss on the randomized batch. **60°** raised
+authority to ~17 m/s² and lifted randomized-batch mission success from ~57% to 93%, and the
+total-magnitude cap went 30 → 40 m/s² with it. The final step to **70°** (~27 m/s²) became
+possible once the outer loop's thrust projection removed the altitude overshoot that had made
+a larger tilt unattractive; it is paired with an inner-loop angular-acceleration clamp
+(70 rad/s², the hover-feasible ceiling) so a large slew is rate-limited rather than demanding
+infeasible torque. The airframe's ~250 m/s² thrust capacity means these limits are real
+authority, not saturation hidden in the motors.
 
 ---
 
@@ -826,9 +833,9 @@ what makes runs bit-for-bit reproducible.
 
 Slower loops **reuse** their most recent output on steps where they don't fire. The stages
 are **injected** (`PipelineComponents`) rather than hard-coded — this is **dependency
-inversion**. The same orchestrator runs the trivial Phase-0 "stub" components (pass-through
-placeholders) *and* the real Phase-2+ components (MuJoCo, EKF, OGL, ...) with **zero
-changes** — you just inject different implementations behind the same interfaces.
+inversion**. The same orchestrator runs the trivial pass-through "stub" components (used by
+tests and by `run_stub_pipeline.py` to prove the loop closes) *and* the real components
+(MuJoCo, EKF, OGL, ...) with **zero changes** — you just inject different implementations behind the same interfaces.
 
 ### 12.4 Engagement termination
 
@@ -864,8 +871,8 @@ per-run reproducibility snapshot. A **YAML scenario file can override any of the
 deep merge — and a typo'd key **fails loud** rather than silently doing nothing.
 
 This split matters: physics constants changing would mean a different drone; tuning
-parameters changing is normal engineering. The two are governed differently (changing a
-KPI-affecting default requires user sign-off).
+parameters changing is normal engineering. The two are governed differently: a
+KPI-affecting default carries an inline rationale and a re-run of the full suite.
 
 ---
 
@@ -908,7 +915,7 @@ Success is defined by six measured metrics, each with a target (with a 5% margin
 | **Z-axis overshoot** | ≤ 0.5 m | How far it flew *past* the target's altitude. |
 | **Command saturation** | ≤ 5% of flight time | Fraction of time pinned at a physical limit. |
 | **Max target speed** | ≥ 83.6 km/h | Fastest target it can still defeat. |
-| **Mission success rate** | ≥ 90% | Fraction of randomized trials that hit (Phase 4). |
+| **Mission success rate** | ≥ 90% | Fraction of randomized 3D trials that hit. |
 
 ### 15.2 KPI measurement: [`kpis.py`](../src/interceptor/analysis/kpis.py)
 
@@ -941,9 +948,9 @@ The runner reuses the existing trajectory generators and the exact same closed l
 it only *declares and drives*, no physics logic of its own. It fails loud on unknown
 trajectory types, missing keys, or a non-OGL law. A scenario may also name a `wind_preset`
 (`calm`/`moderate`/`gusty`) as a shorthand for the wind profile. The library has **6 static +
-5 linear** geometries (Phase 3), a `scenarios/ablation/` pair for the `b`-penalty study, and
-**`scenarios/phase4/`** with **4 sinusoidal (evasive) + 3 varying-speed (high-speed, to 90
-km/h) + 4 wind** stress scenarios (Phase 4).
+5 linear** geometries in `scenarios/`, a `scenarios/ablation/` pair for the `b`-penalty study,
+and **`scenarios/stress/`** with **4 sinusoidal (evasive) + 3 varying-speed (high-speed, to 90
+km/h) + 4 wind** stress scenarios.
 
 ### 15.3b Randomized Monte-Carlo trials: [`montecarlo.py`](../src/interceptor/analysis/montecarlo.py)
 
@@ -956,8 +963,8 @@ interception"*), reports the other KPIs as separate compliance rates, and breaks
 per family and per wind preset so weak regimes are exposed, not hidden. Each trial's run seed
 is its index, so `(master_seed, num_trials)` reproduces the whole batch byte-for-byte, and a
 batch manifest records the master seed + git hash + the committed tuning. This is what
-certifies the Phase 4 headline: **93% mission success**, a **90 km/h**-class target
-intercepted, and interception essentially flat under wind.
+certifies the headline: **95% mission success**, a **90 km/h**-class target intercepted, and
+interception essentially flat under wind (full numbers in [`RESULTS.md`](./RESULTS.md)).
 
 ### 15.4 Reporting: [`reporting.py`](../src/interceptor/analysis/reporting.py)
 
@@ -972,29 +979,30 @@ Under [`tests/`](../tests/), split into `unit/` (per-component: EKF, guidance, c
 sensors, trajectories, frames, KPIs, Monte-Carlo sampling/aggregation, wind wiring, ...) and
 `integration/` (whole-pipeline: stub loop, real interception, scenario suites, a reproducible
 Monte-Carlo batch, MuJoCo headless render). Tests are **headless, non-interactive, and
-seeded**. As of Phase 4: **208 passing tests**. Tests that need the GL context are marked
-`mujoco` so they can be skipped where there's no display.
+seeded**: **221 passing tests**. Tests that need the GL context are marked `mujoco` so they
+can be skipped where there's no display.
 
-Key rule from `AGENTS.md`: *the Test/KPI role measures and reports faithfully; it never
-tweaks the guidance/control internals or relaxes a target to manufacture a pass.* When it
-finds a systemic failure, it files a finding for the owning role — as happened with the
-saturation KPI in Phase 3.
+Key rule (see [`ENGINEERING_STANDARDS.md`](./ENGINEERING_STANDARDS.md)): *the Test/KPI role
+measures and reports faithfully; it never tweaks the guidance/control internals or relaxes a
+target to manufacture a pass.* When it finds a systemic failure, it files a finding for the
+owning role — as happened when the saturation KPI was found to be undercounting (it ignored
+motor-mixer saturation), which was fixed by making the metric stricter, not the target looser.
 
 ---
 
 ## 16. The project map, file by file
 
 ```
-Workshop_Autonomous_Systems/
-├── AGENTS.md                  # The engineering contract — rules, roles, boundaries
-├── CLAUDE.md / GEMINI.md      # Point AI assistants at AGENTS.md
-├── README.md                  # Quick-start
+Autonomous-Quadcopter-Drone-Interceptor/
+├── README.md                  # Overview + command reference
 ├── pyproject.toml             # Pinned dependencies (mujoco, numpy, scipy, pyyaml, matplotlib)
 │
 ├── docs/
 │   ├── Autonomous_Drone_Interceptor_Design_Review.md   # THE authoritative design
-│   ├── implementation_plan.md, phase0..4.md            # Phased roadmap
-│   ├── phase*_progress.md                              # What was actually built each phase
+│   ├── GETTING_STARTED.md                              # Install → verify → run → troubleshoot
+│   ├── RESULTS.md                                      # Measured KPIs + known limitations
+│   ├── ENGINEERING_STANDARDS.md                        # The rules the code is built to
+│   ├── Andrea_Tini_Thesis_Summary.md                   # The guidance-law source material
 │   └── PROJECT_EXPLAINED.md                            # (this document)
 │
 ├── models/                    # MuJoCo world (MJCF XML)
@@ -1006,14 +1014,14 @@ Workshop_Autonomous_Systems/
 │   ├── static_*.yaml          # 6 static-target geometries
 │   ├── linear_*.yaml          # 5 constant-velocity geometries
 │   ├── ablation/*.yaml        # b=0 controls for the altitude-penalty study
-│   └── phase4/*.yaml          # 4 sinusoidal + 3 varying-speed + 4 wind stress scenarios
+│   └── stress/*.yaml          # 4 sinusoidal + 3 varying-speed + 4 wind stress scenarios
 │
 ├── scripts/                   # Entry points
 │   ├── check_env.py           # Environment doctor (verifies MuJoCo, off-screen render)
-│   ├── run_stub_pipeline.py   # Phase 0 — the loop on pass-through stubs
-│   ├── run_intercept.py       # Phase 2 — real guided interception, static target
-│   ├── run_scenarios.py       # Phase 3 — run scenario(s), print KPI table, optional report
-│   ├── run_montecarlo.py      # Phase 4 — randomized 3D Monte-Carlo mission-success batch
+│   ├── run_stub_pipeline.py   # The loop on pass-through stubs (proves it closes)
+│   ├── run_intercept.py       # A real guided interception
+│   ├── run_scenarios.py       # Run scenario(s), print KPI table, optional report
+│   ├── run_montecarlo.py      # Randomized 3D Monte-Carlo mission-success batch
 │   ├── run_sim_demo.py        # Simulation-only demo
 │   └── replay.py              # Interactive replay viewer of a recorded run
 │
@@ -1036,7 +1044,7 @@ Workshop_Autonomous_Systems/
 │   │   ├── wind.py            # Steady wind + OU-process gusts
 │   │   ├── rendering.py       # Off-screen renderer
 │   │   ├── interfaces.py      # Plant / SensorModel / TargetTrajectory / Renderer ABCs
-│   │   └── stubs.py           # Trivial pass-through implementations (Phase 0/tests)
+│   │   └── stubs.py           # Trivial pass-through implementations (tests/skeleton run)
 │   ├── estimation/            # STAGE 2 (Role 2)
 │   │   ├── ekf.py             # The Extended Kalman Filter
 │   │   ├── interfaces.py      # Estimator ABC
@@ -1071,36 +1079,39 @@ Workshop_Autonomous_Systems/
 
 ## 17. How to run everything
 
-From the project root, on Windows (PowerShell). MuJoCo is installed at
-`C:/Dev/Libraries/mujoco`; the pip `mujoco` wheel bundles its own libraries.
+From the project root, with the virtual environment activated. No MuJoCo installation,
+GPU, or display is required — the pip `mujoco` wheel bundles its native libraries, all
+physics is CPU-side, and every command except the replay viewer is headless.
+[`GETTING_STARTED.md`](./GETTING_STARTED.md) covers this in more depth, including
+troubleshooting.
 
-```powershell
+```bash
 # One-time setup
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate        # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 
-# Verify the environment (checks Python, imports, MuJoCo, one off-screen frame)
+# Verify the environment (Python, imports, MuJoCo, one off-screen frame)
 python scripts/check_env.py
 
-# The whole 6-stage loop on trivial stubs (Phase 0), deterministic
+# The whole 6-stage loop on trivial pass-through stubs, deterministic
 python scripts/run_stub_pipeline.py --steps 400 --seed 0
 
-# A real guided interception against a static target (Phase 2)
+# A real guided interception against a hovering target (~5 s)
 python scripts/run_intercept.py --target 8 3 6 --seconds 9
 python scripts/replay.py results/intercept                    # watch it (top view)
 python scripts/replay.py results/intercept --view interceptor # chase cam
 
-# Run a declarative scenario, or the whole suite with a KPI report (Phase 3)
+# One scenario, or the static/linear suite with a KPI report (~21 s)
 python scripts/run_scenarios.py scenarios/linear_crossing.yaml
-python scripts/run_scenarios.py scenarios/ --report           # -> results/phase3/
+python scripts/run_scenarios.py scenarios/ --report --results-dir results/scenarios
 
-# The evasive/high-speed/wind stress probes, and the randomized batch (Phase 4)
-python scripts/run_scenarios.py scenarios/phase4 --results-dir results/phase4
-python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/phase4/montecarlo
+# The evasive/high-speed/wind stress probes (~14 s), then the randomized batch (~1 min 50 s)
+python scripts/run_scenarios.py scenarios/stress --results-dir results/stress
+python scripts/run_montecarlo.py --trials 100 --seed 0 --report --results-dir results/montecarlo
 
 # The tests
-pytest                    # everything (~208 tests)
+pytest                    # 221 tests, ~80 s
 pytest -m "not mujoco"    # skip the off-screen GL render test
 ```
 
@@ -1110,37 +1121,41 @@ exactly.
 
 ---
 
-## 18. Current status and roadmap
+## 18. Where it landed, and what it cannot do
 
-The project is built in four phases (from the design review):
+The delivered system meets the design review's acceptance table. Over the canonical
+randomized batch (100 seeded 3D trials): **95% mission success**, targets intercepted up to
+**89.7 km/h**, median miss **0.024 m**, Z-overshoot compliant in 98% of trials, and 11/11
+named static/linear scenarios passing every KPI. Interception is flat under wind. The
+numbers, the per-family breakdown, and the exact commands that produce them are in
+[`RESULTS.md`](./RESULTS.md).
 
-- **Phase 0 — ✅ Done.** Environment, project skeleton, data contracts, the stub pipeline
-  proving the loop closes deterministically.
-- **Phase 1 — ✅ Done.** The MuJoCo world: quadcopter/target models, rotor actuator model,
-  noisy/delayed sensors, trajectory generators, wind, ground-truth kinematics.
-- **Phase 2 — ✅ Done.** The real algorithms wired in: EKF, OGL, command limiter, dual-loop
-  control, motor mixer. The loop intercepts static targets to well within 1.05 m.
-- **Phase 3 — ✅ Done.** KPI + scenario tooling, and tuning to *meet spec* on static and
-  linear targets: **11/11 scenarios pass every KPI** (miss distances 0.005–0.063 m, all
-  saturation ≤ 5%). Two tuning changes were made with sign-off: reference closing speed
-  5.0 → 3.5 m/s, and max tilt 35° → 45°.
-- **Phase 4 — ✅ Done.** Randomized 3D trials against **evasive** (sinusoidal),
-  **high-speed** (to 90 km/h), and **windy** targets, plus a seeded Monte-Carlo harness for
-  the mission-success KPI. Headline results: **93% mission success (interception)**, a
-  cleanly intercepted **89.7 km/h** target, and Z-overshoot within KPI, with wind robustness
-  confirmed. One params-only tuning change was made with sign-off: max tilt 45° → 60° (and
-  the total-accel cap 30 → 40 m/s²). The residual **command-saturation** tail on very short
-  high-speed intercepts is characterized and filed for a future adaptive-authority refinement
-  (see `docs/phase4_progress.md`). The current git branch is `phase-4`.
+Three honest limits remain, characterized rather than tuned away:
 
-Three design decisions worth remembering (recorded in the project's memory):
-- **OGL is the sole guidance law.** PN/APN were evaluated and rejected; they are not
-  implemented.
-- **The augmented-ZEM term remains gated off.** With a relative-state EKF it would feed the
-  interceptor's own maneuver back as positive feedback; it stays the candidate next step for
-  the fast-crossing tail rather than a shipped feature.
-- **Mission success is measured as *interception***, per the design review — the other KPIs
-  (saturation, Z-overshoot, time) are reported as separate compliance rates.
+- **Command saturation on sub-2-second intercepts.** Against an 85+ km/h crossing target
+  engaged from rest, the interceptor still hits but spends more than the 5% budget pinned
+  against the tilt cap or the mixer's allocation limit. Closing this needs adaptive command
+  authority or launch-shaping in guidance — a logic change, not a tuning change. Note the
+  saturation metric counts limiter **and** mixer, so this is a strict, honest number: an
+  earlier version counted only the limiter and looked far better than the airframe actually
+  was.
+- **Fast off-axis geometry is the physical degradation edge.** A from-rest interceptor
+  cannot always lead a strongly crossing target above ~85 km/h. That is geometry, not a
+  defect.
+- **Far-static engagements are tight against the deliberately strict 10 s static budget.**
+
+Three design decisions worth remembering:
+
+- **OGL is the sole guidance law.** PN and APN were evaluated in the design review and
+  rejected; they are not implemented, and a scenario naming another law is rejected rather
+  than silently falling back.
+- **The augmented-ZEM term stays gated off.** With a relative-state EKF it feeds the
+  interceptor's own maneuver back as positive feedback. It is implemented and remains the
+  candidate next step for the fast-crossing tail rather than a shipped feature.
+- **Mission success is measured as *interception***, per the design review. The other KPIs
+  (saturation, Z-overshoot, time) are reported as separate compliance rates, so a very
+  short high-speed intercept that transiently exceeds the saturation budget is a success
+  with a documented caveat — not a hidden failure and not a silent pass.
 
 ---
 
@@ -1189,6 +1204,6 @@ Three design decisions worth remembering (recorded in the project's memory):
 
 ---
 
-*This document reflects the codebase as of the `phase-4` branch. For the authoritative
-design rationale see the Design Review; for the engineering rules see `AGENTS.md`; for what
-was actually built and verified in each phase see the `docs/phase*_progress.md` reports.*
+*For the design rationale see the [Design Review](./Autonomous_Drone_Interceptor_Design_Review.md);
+for the engineering rules see [`ENGINEERING_STANDARDS.md`](./ENGINEERING_STANDARDS.md); for
+the measured performance and its reproduction commands see [`RESULTS.md`](./RESULTS.md).*

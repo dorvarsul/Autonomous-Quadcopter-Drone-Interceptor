@@ -9,7 +9,7 @@ Turns the true interceptor->target geometry into a corrupted
 * a configurable **latency** via a delay buffer that stamps each emitted sample with
   its true age.
 
-Determinism & honesty (AGENTS.md → Role 1): the noise is intentional and must not be
+Determinism & honesty (ENGINEERING_STANDARDS.md → Role 1): the noise is intentional and must not be
 sanitized for downstream convenience; it is drawn from a single **seeded** RNG stream
 so a fixed seed reproduces the measurement series exactly. Constructing a sensor with
 no profile, or with noise but no seed, **fails loud** — a silent "clean" sensor would
@@ -51,7 +51,7 @@ class NoisyDelayedSensorModel(SensorModel):
         if params is None:
             raise ValueError(
                 "NoisyDelayedSensorModel requires an explicit SensorParams profile; "
-                "a sensor with no noise/latency profile is forbidden (AGENTS.md → "
+                "a sensor with no noise/latency profile is forbidden (ENGINEERING_STANDARDS.md → "
                 "Role 1 must not sanitize signals)."
             )
         self._params = params
@@ -68,7 +68,7 @@ class NoisyDelayedSensorModel(SensorModel):
         if self._has_noise and rng is None:
             raise ValueError(
                 "A noisy sensor requires a seeded rng for reproducibility "
-                "(AGENTS.md → seed all randomness)."
+                "(ENGINEERING_STANDARDS.md → seed all randomness)."
             )
         self._rng = rng
 

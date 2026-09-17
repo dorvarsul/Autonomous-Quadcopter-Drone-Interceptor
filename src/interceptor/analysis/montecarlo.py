@@ -6,7 +6,7 @@ target-trajectory family (static / linear / sinusoidal / varying-speed) with ran
 parameters, and a random wind preset — and flies a seeded batch of them to measure the
 **Mission Success Rate** KPI (``>= MISSION_SUCCESS_MIN``, Design Review §7).
 
-Design intent (all in service of AGENTS.md → determinism & Role-5 boundary):
+Design intent (all in service of ENGINEERING_STANDARDS.md → determinism & Role-5 boundary):
 
 - **Reuse, don't reinvent.** Every sampled trial is turned into an ordinary validated
   :class:`~interceptor.analysis.scenarios.Scenario` via ``scenario_from_dict`` and flown by

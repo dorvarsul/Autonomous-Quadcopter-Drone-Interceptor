@@ -16,8 +16,8 @@ It reads the same shared constants as the forward model, so the two can never di
 
 Inverting for the ``f_i`` and taking ``rpm_i = sqrt(f_i / kT)`` gives the command. RPM
 saturation (``[MOTOR_RPM_MIN, MOTOR_RPM_MAX]``) is the physical actuator ceiling: an
-infeasible request is clamped and **logged loudly**, never silently exceeded (AGENTS.md →
-respect physical limits; KPI: command saturation must stay measurable).
+infeasible request is clamped and **logged loudly**, never silently exceeded
+(ENGINEERING_STANDARDS.md → respect physical limits; KPI: command saturation must stay measurable).
 """
 
 from __future__ import annotations

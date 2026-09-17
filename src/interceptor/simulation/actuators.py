@@ -8,9 +8,9 @@ torque the physics engine applies, using the quadratic rotor model:
 
 This is the **physical actuator boundary**: incoming RPMs are clamped to
 ``[MOTOR_RPM_MIN, MOTOR_RPM_MAX]`` here (a real rotor cannot exceed its limits), and a
-clamp is reported as a saturation event rather than applied silently (AGENTS.md → fail
-loud; KPI: command saturation must stay measurable). The motor mixer must
-respect the *same* bound so the two never disagree.
+clamp is reported as a saturation event rather than applied silently
+(ENGINEERING_STANDARDS.md → fail loud; KPI: command saturation must stay measurable).
+The motor mixer must respect the *same* bound so the two never disagree.
 
 Geometry is the "+" configuration in MotorCommand order
 ``[front(+X), right(-Y), back(-X), left(+Y)]``. Roll/pitch torque comes from the arm

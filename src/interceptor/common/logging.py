@@ -1,6 +1,6 @@
 """Per-run structured logging and reproducibility snapshots.
 
-Two responsibilities, both serving determinism/reproducibility (AGENTS.md):
+Two responsibilities, both serving determinism/reproducibility (ENGINEERING_STANDARDS.md):
 
 1. :class:`RunLogger` writes one structured CSV row per timestep, so any run can be
    replayed/plotted offline.

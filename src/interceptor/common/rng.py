@@ -1,6 +1,6 @@
 """Centralized, seeded RNG factory for deterministic, reproducible runs.
 
-Determinism is a core value (AGENTS.md): identical seed + identical config must yield
+Determinism is a core value (ENGINEERING_STANDARDS.md): identical seed + identical config must yield
 byte-identical results. To guarantee that, **no component may call the global
 ``random`` / ``np.random`` functions**. Instead, every stochastic component is handed
 its own independent ``numpy.random.Generator`` drawn from a single root seed via

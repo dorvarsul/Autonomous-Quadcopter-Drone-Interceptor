@@ -5,7 +5,7 @@ stochastic gust**. Gusts are a first-order Gauss-Markov (Ornstein-Uhlenbeck) pro
 which gives temporally-correlated, band-limited turbulence rather than white noise —
 physically closer to real gusts and numerically gentle on the controller.
 
-Determinism (AGENTS.md): the whole gust time-series is **precomputed once** at
+Determinism (ENGINEERING_STANDARDS.md): the whole gust time-series is **precomputed once** at
 construction from a single seeded RNG stream, then sampled by time. This makes
 ``velocity_at(t)`` a pure function of ``t`` — the same seed yields a byte-identical
 disturbance series, and both the plant-force path and the wind-affected
@@ -85,7 +85,7 @@ class WindField:
         if rng is None:
             raise ValueError(
                 "WindField with gust_std_m_s > 0 requires a seeded rng for "
-                "reproducibility (AGENTS.md → seed all randomness)."
+                "reproducibility (ENGINEERING_STANDARDS.md → seed all randomness)."
             )
         a = float(np.exp(-self._dt / tau_s))
         b = float(np.sqrt(1.0 - a * a))

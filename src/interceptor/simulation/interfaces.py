@@ -51,7 +51,7 @@ class Renderer(ABC):
     """Visualization sink. Automated runs require a headless (off-screen) implementation.
 
     Owned by Role 1. The pipeline must run with a renderer that opens **no GLFW
-    window** so automated/headless runs never hang (AGENTS.md → Execution Note).
+    window** so automated/headless runs never hang (ENGINEERING_STANDARDS.md → Execution Note).
     """
 
     @property

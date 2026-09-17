@@ -1,7 +1,7 @@
 """Abstract interfaces owned by the Flight Control & Actuation layer (Role 4).
 
 Four narrow contracts, kept separate so the two control loops stay distinct and run at
-their own rates (AGENTS.md → "do not collapse them into a single loop"):
+their own rates (ENGINEERING_STANDARDS.md → "do not collapse them into a single loop"):
 
     CommandLimiter      : clamp guidance accel to safe bounds (SAFETY).
     OuterLoopController : accel -> target attitude (~50 Hz).

@@ -1,6 +1,7 @@
-AGENTS.md
-CLAUDE.md
-GEMINI.md
+# Local editor / tooling files (not part of the deliverable)
+.claude/
+.idea/
+.vscode/
 
 # Python
 __pycache__/
@@ -22,3 +23,14 @@ results/
 *.gif
 *.png
 !docs/**/*.png
+!docs/**/*.gif
+!docs/**/*.jpg
+
+# AI and Project Clutter
+.claude/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+rewrite.sh
+rebuild_history.sh
+

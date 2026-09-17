@@ -1,7 +1,7 @@
 """Pipeline data contracts: one immutable, typed message per pipeline edge.
 
 These dataclasses are the *only* legal way data crosses a layer boundary. Each maps to
-exactly one arrow in the 6-stage pipeline contract (AGENTS.md → Pipeline Contract):
+exactly one arrow in the 6-stage pipeline contract (ENGINEERING_STANDARDS.md → Pipeline Contract):
 
     Simulation  --RawSensorMeasurement-->        Estimation
     Estimation  --TargetStateEstimate-->         Guidance
@@ -13,8 +13,8 @@ exactly one arrow in the 6-stage pipeline contract (AGENTS.md → Pipeline Contr
 
 Every message is a frozen dataclass; array fields are stored read-only (``freeze``) so
 a downstream layer cannot mutate a producer's data. ``__post_init__`` validates shapes
-and finiteness and **fails loud** on NaN/Inf (AGENTS.md → fail loud). Units are stated
-on every field; no field exists that its consuming layer does not need.
+and finiteness and **fails loud** on NaN/Inf (ENGINEERING_STANDARDS.md → fail loud).
+Units are stated on every field; no field exists that its consuming layer does not need.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ class TargetStateEstimate:
 
     Carries the quantities Guidance needs (relative position/velocity, range, LOS rate,
     angular rates) plus the **estimate covariance and a scalar quality** so Guidance can
-    reason about uncertainty (AGENTS.md → Role 2 must expose estimate quality).
+    reason about uncertainty (ENGINEERING_STANDARDS.md → Role 2 must expose estimate quality).
     """
 
     relative_position_m: NDArray[np.float64]  # target - interceptor, world frame [m]
@@ -222,7 +222,7 @@ class MotorCommand:
     step (a rotor driven below MIN or above MAX RPM). Actuator saturation is a *tracked*
     KPI input just like limiter saturation: if it were dropped here, aggressive attitude
     slews could exceed the airframe silently while the command-saturation KPI stayed green
-    (hidden saturation — AGENTS.md → saturation must stay measurable, not hidden). It
+    (hidden saturation — ENGINEERING_STANDARDS.md → saturation must stay measurable, not hidden). It
     defaults False so the pass-through/stub mixers still satisfy the contract.
     """
 

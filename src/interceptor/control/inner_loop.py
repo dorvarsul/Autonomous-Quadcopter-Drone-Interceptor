@@ -3,7 +3,7 @@
 The fast loop that makes the tilt delay *real*: it drives the actual attitude toward the
 outer loop's :class:`AttitudeReference` using gyroscope feedback, emitting the body
 torque the mixer realizes. It is deliberately distinct from the 50 Hz outer loop and runs
-at ``INNER_LOOP_HZ`` (AGENTS.md → never collapse the two loops).
+at ``INNER_LOOP_HZ`` (ENGINEERING_STANDARDS.md → never collapse the two loops).
 
 The ``track`` contract provides the desired attitude and the measured **body rates only**
 (the gyro), not the current attitude — exactly what a rate gyro gives. The controller

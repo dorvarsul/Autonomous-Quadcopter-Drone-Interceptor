@@ -5,7 +5,7 @@ relative position/velocity, range, Line-of-Sight (LOS) angles and **LOS rate**, 
 closing velocity. These follow the sign/axis conventions documented in
 :mod:`interceptor.common.frames`.
 
-**Boundary (AGENTS.md → Pipeline Contract):** this is the raw truth the *sensors*
+**Boundary (ENGINEERING_STANDARDS.md → Pipeline Contract):** this is the raw truth the *sensors*
 corrupt. It lives strictly inside the Simulation/sensor layer. Estimation, Guidance,
 and Control must never read it directly — doing so is the "cheating with ground truth"
 defect the architecture forbids. The type below is deliberately *not* one of the

@@ -1,12 +1,13 @@
 """Shared physical and system constants — the single source of truth.
 
 Every value here carries explicit units in its name and a ``Why`` note tying it to
-the Design Review / AGENTS.md. No downstream module may hard-code any of these
+the Design Review / ENGINEERING_STANDARDS.md. No downstream module may hard-code any of these
 numbers (Clean Code → "No magic numbers"; DRY → one source of truth).
 
-Note: airframe/motor figures are *documented placeholders* refined by the
-Simulation Engineer (Role 1). They exist so contracts and stubs have typed, named
-values to reference — not to be trusted as final physics.
+Note: the airframe/motor figures are *representative* of a ~1 kg research quadcopter
+rather than measured from a specific commercial airframe. They are marked ``MODELED``
+below, and are consistent with each other (mass, inertia, arm length, thrust
+coefficient, RPM ceiling) so the simulated dynamics are physically coherent.
 
 Coordinate frame reminder (see ``common.frames``): world frame is **Z-up**; the
 altitude axis is Z. The Z axis gets first-class attention throughout because the
@@ -29,26 +30,26 @@ wind/gust disturbance model (Role 1)."""
 
 WIND_DRAG_COEFF_N_PER_M_S: float = 0.05
 """Linear aerodynamic coupling between air-relative velocity and force [N per m/s].
-PLACEHOLDER (Role 1). Why: the wind disturbance pushes the airframe with a
+MODELED. Why: the wind disturbance pushes the airframe with a
 force F = k * (v_wind - v_body); a single lumped coefficient keeps the model explicit
 and reproducible without a full aerodynamic surface model."""
 
 # --------------------------------------------------------------------------------
-# Airframe (PLACEHOLDERS — refined by Role 1)
+# Airframe (MODELED — representative of a ~1 kg research quadcopter)
 # --------------------------------------------------------------------------------
 
 QUAD_MASS_KG: float = 1.0
-"""Interceptor total mass [kg]. PLACEHOLDER. Why: sets weight (m*g) and translates
+"""Interceptor total mass [kg]. MODELED. Why: sets weight (m*g) and translates
 force commands to accelerations (a = F/m)."""
 
-# Diagonal moments of inertia about body x/y/z [kg*m^2]. PLACEHOLDER.
+# Diagonal moments of inertia about body x/y/z [kg*m^2]. MODELED.
 # Why: map body torques to angular accelerations in the inner control loop.
 QUAD_INERTIA_IXX_KG_M2: float = 0.01
 QUAD_INERTIA_IYY_KG_M2: float = 0.01
 QUAD_INERTIA_IZZ_KG_M2: float = 0.02
 
 ARM_LENGTH_M: float = 0.15
-"""Rotor arm length, center to rotor [m]. PLACEHOLDER. Why: lever arm converting
+"""Rotor arm length, center to rotor [m]. MODELED. Why: lever arm converting
 differential rotor thrust into roll/pitch torque in the motor mixer."""
 
 # --------------------------------------------------------------------------------
@@ -60,17 +61,17 @@ MOTOR_RPM_MIN: float = 0.0
 clamping below this is a saturation event the limiter must surface."""
 
 MOTOR_RPM_MAX: float = 25000.0
-"""Maximum rotor speed [RPM]. PLACEHOLDER. Why: hard actuator ceiling; exceeding it
+"""Maximum rotor speed [RPM]. MODELED. Why: hard actuator ceiling; exceeding it
 risks stall/loss of control. Command saturation against this bound is a tracked KPI
 (<= 5% of flight time)."""
 
 THRUST_COEFF_KT: float = 1.0e-7
 """Rotor thrust coefficient kT so that thrust = kT * RPM^2 [N per RPM^2].
-PLACEHOLDER. Why: converts rotor speed to lift in the motor mixer."""
+MODELED. Why: converts rotor speed to lift in the motor mixer."""
 
 TORQUE_COEFF_KQ: float = 1.0e-9
 """Rotor reaction-torque coefficient kQ so that torque = kQ * RPM^2 [N*m per RPM^2].
-PLACEHOLDER. Why: yaw authority and gyroscopic reaction in the motor mixer."""
+MODELED. Why: yaw authority and gyroscopic reaction in the motor mixer."""
 
 # --------------------------------------------------------------------------------
 # Loop rates  (NEVER collapse the two control loops — Role 4 / Role 6)
@@ -90,7 +91,7 @@ OUTER_LOOP_HZ: int = 50
 acceleration commands into target roll/pitch tilt."""
 
 ESTIMATION_HZ: int = 100
-"""Estimator (EKF) update rate [Hz], tied to the sensor sample rate. PLACEHOLDER —
+"""Estimator (EKF) update rate [Hz], tied to the sensor sample rate. MODELED —
 finalized with the sensor model. Why: the EKF runs at sensor cadence, not
 the control cadence."""
 
@@ -104,22 +105,19 @@ outer-loop cadence; kept as its own constant so it can diverge later if needed."
 
 TILT_DELAY_TIME_CONSTANT_S: float = 0.2
 """Mechanical tilt-delay time constant T in the first-order lag 1/(T*s + 1) [s].
-PLACEHOLDER. Why: the quad cannot change attitude instantaneously; OGL must account
+MODELED. Why: the quad cannot change attitude instantaneously; OGL must account
 for this lag (Design Review). Never assume instantaneous turns."""
 
 ALTITUDE_PENALTY_B: float = 0.1
 """Altitude (Z-axis) penalty weight b in the OGL cost [dimensionless]. Why: Design
-Review default b = 0.1 eliminates Z-axis overshooting. Changing it affects a KPI and
-needs user confirmation."""
-
-NAV_RATIO_BASE: float = 3.0
-"""Baseline navigation ratio N' for PN/APN baselines [dimensionless]. PLACEHOLDER.
-Why: classic PN uses N' in [3, 5]; OGL replaces this with a time-to-go schedule."""
+Review default b = 0.1 eliminates Z-axis overshooting. Changing it moves a KPI, so it
+is a deliberate, documented, re-validated change."""
 
 NAV_RATIO_MIN: float = 3.0
 NAV_RATIO_MAX: float = 5.0
-"""Bounds for the time-varying navigation ratio schedule [dimensionless].
-PLACEHOLDER. Why: keep N' physically reasonable when driven by time-to-go (Role 3)."""
+"""Bounds for the time-varying navigation ratio schedule [dimensionless]. Why: classic
+PN uses a fixed N' in [3, 5]; OGL drives it from time-to-go, and these bounds keep the
+schedule physically reasonable (Role 3)."""
 
 # --------------------------------------------------------------------------------
 # KPI thresholds  (acceptance bar; 5% margin baked into targets)

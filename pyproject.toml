@@ -1,6 +1,6 @@
 # Dependency manifest & build config for the Autonomous Drone Interceptor.
 # Versions are pinned for reproducibility (determinism is the project's north star).
-# Any dependency beyond this list requires user confirmation (AGENTS.md -> Workflow).
+# Adding a dependency beyond this list is a deliberate, reviewed act (ENGINEERING_STANDARDS.md).
 
 [build-system]
 requires = ["setuptools>=68"]

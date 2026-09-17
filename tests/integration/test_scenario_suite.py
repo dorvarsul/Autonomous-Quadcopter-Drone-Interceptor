@@ -5,7 +5,7 @@ the KPI module. A failure names the offending KPI so a future change that regres
 is caught and localized immediately (not just "a run got worse"). Marked ``mujoco`` because
 it drives the physics engine; headless and deterministic.
 
-These lock the *user-approved tuning* (soft launch + 45 deg tilt authority): every
+These lock the *committed tuning* (soft launch + the tilt-authority settings): every
 static and linear geometry in the spread meets miss distance, time-to-intercept, Z-overshoot,
 and command saturation. The ablation scenarios (``scenarios/ablation``) are intentionally
 off-spec controls (b = 0) and are excluded here.

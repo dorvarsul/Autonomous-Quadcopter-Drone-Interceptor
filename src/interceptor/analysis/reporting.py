@@ -4,7 +4,7 @@ Turns a batch of :class:`~interceptor.analysis.scenarios.ScenarioResult` into a
 reproducible, human-readable report: a KPI summary table (CSV + Markdown) and per-scenario
 diagnostic plots, plus a b-penalty ablation comparison. Everything is written to disk; this
 module never opens a window (matplotlib is forced to the headless **Agg** backend so it is
-safe in CI / automated runs — AGENTS.md → no hanging GLFW/GUI).
+safe in CI / automated runs — ENGINEERING_STANDARDS.md → no hanging GLFW/GUI).
 
 The plots visualize exactly the quantities the KPIs grade, so a failing metric is legible
 at a glance:
@@ -86,7 +86,7 @@ def write_kpi_summary_csv(results: list[ScenarioResult], out_path: str | Path) -
 
 
 def format_kpi_summary_markdown(results: list[ScenarioResult]) -> str:
-    """Render the KPI summary as a Markdown table (for the progress report / console)."""
+    """Render the KPI summary as a Markdown table (for the console and reports)."""
     header = (
         "| Scenario | Class | R_miss (m) | t_int (s) | Z-over (m) | Sat % | Max spd (km/h) | Pass |"
     )

@@ -3,7 +3,7 @@
 Checks, in order:
   1. Python version is >= 3.11.
   2. Core dependencies import (mujoco, numpy, scipy, yaml, matplotlib).
-  3. MuJoCo reports a version and its native binaries are resolvable on PATH.
+  3. MuJoCo imports, reports its version, and its native libraries resolve.
   4. A trivial MJCF loads and steps headlessly, and one frame renders **off-screen**
      (no GLFW window) — the headless smoke test the automated pipeline requires.
 
@@ -18,11 +18,9 @@ from __future__ import annotations
 import importlib
 import os
 import sys
-from pathlib import Path
 from typing import NoReturn
 
 MIN_PYTHON = (3, 11)
-MUJOCO_BIN_DIR = Path("C:/Dev/Libraries/mujoco/bin")
 REQUIRED_MODULES = ("mujoco", "numpy", "scipy", "yaml", "matplotlib")
 
 
@@ -51,21 +49,18 @@ def check_imports() -> None:
 
 
 def check_mujoco_binaries() -> None:
-    """Confirm MuJoCo loaded and its native DLLs are resolvable.
+    """Confirm MuJoCo loaded and its native libraries resolved.
 
-    On Windows, `C:/Dev/Libraries/mujoco/bin` must be on PATH so mujoco.dll/glfw3.dll
-    resolve (AGENTS.md). The pip `mujoco` wheel bundles its own libs, so importing it
-    is the real proof; we additionally note whether the documented bin dir is present.
+    The pip `mujoco` wheel bundles its own native libraries on every supported platform,
+    so a successful import *is* the proof — no separate MuJoCo installation is required.
+    We also report the requested GL backend, since that is what off-screen rendering
+    (the next check) depends on.
     """
     import mujoco
 
     _ok(f"MuJoCo version {mujoco.__version__}")
-    if MUJOCO_BIN_DIR.exists():
-        on_path = str(MUJOCO_BIN_DIR) in os.environ.get("PATH", "")
-        state = "on PATH" if on_path else "present but NOT on PATH (pip wheel bundles libs anyway)"
-        _ok(f"MuJoCo bin dir {MUJOCO_BIN_DIR} {state}")
-    else:
-        print(f"[WARN] MuJoCo bin dir {MUJOCO_BIN_DIR} not found; relying on pip wheel libs.")
+    backend = os.environ.get("MUJOCO_GL", "(unset — MuJoCo picks a default)")
+    _ok(f"GL backend MUJOCO_GL={backend}")
 
 
 def check_headless_render() -> None:

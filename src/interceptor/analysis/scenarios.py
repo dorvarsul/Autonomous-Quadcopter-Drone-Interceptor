@@ -17,7 +17,7 @@ Design intent:
   (via the orchestrator snapshot) and, additionally, the scenario name and its resolved
   spec, so a result is fully traceable to the file that produced it.
 - **Fail loud on a bad spec.** Unknown trajectory types, missing keys, or a non-OGL
-  guidance law raise immediately rather than silently defaulting (AGENTS.md).
+  guidance law raise immediately rather than silently defaulting (ENGINEERING_STANDARDS.md).
 """
 
 from __future__ import annotations

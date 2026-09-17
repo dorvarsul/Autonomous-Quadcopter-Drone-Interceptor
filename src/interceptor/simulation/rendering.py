@@ -2,7 +2,7 @@
 
 A :class:`Renderer` that captures frames **off-screen** via ``mujoco.Renderer`` and
 opens **no interactive GLFW window** — automated/headless runs must never hang
-(AGENTS.md → Execution Note). Frames can be saved as debug PNGs (and stitched into a
+(ENGINEERING_STANDARDS.md → Execution Note). Frames can be saved as debug PNGs (and stitched into a
 video offline). Rendering is purely an observer: it reads model/data and writes image
 files; it never steps physics, so enabling or disabling it cannot change a run's
 results.

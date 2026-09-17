@@ -190,7 +190,7 @@ def test_mixer_reports_saturation_flag():
     A feasible hover request is unsaturated. A very large roll torque against MAX-RPM rotors
     exceeds the actuator ceiling even after the attitude-priority boost, so it must report
     ``saturated=True`` — otherwise real actuator saturation would be invisible (hidden
-    saturation, AGENTS.md).
+    saturation, ENGINEERING_STANDARDS.md).
     """
     mixer = QuadMotorMixer()
     hover_thrust = constants.QUAD_MASS_KG * constants.GRAVITY_M_S2

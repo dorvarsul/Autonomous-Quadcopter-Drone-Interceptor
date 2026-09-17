@@ -12,7 +12,7 @@ tracks) are read directly from the free-joint DOFs. World linear velocity is obt
 by finite-differencing the world position, which is frame-unambiguous and matches the
 ground-truth kinematics convention.
 
-Determinism (AGENTS.md): MuJoCo stepping is deterministic; the only randomness is the
+Determinism (ENGINEERING_STANDARDS.md): MuJoCo stepping is deterministic; the only randomness is the
 seeded wind field, so a fixed seed + command stream reproduces the trajectory exactly.
 The plant also asserts the model timestep equals ``1/SIM_HZ`` so the XML and the
 constants can never drift apart silently.

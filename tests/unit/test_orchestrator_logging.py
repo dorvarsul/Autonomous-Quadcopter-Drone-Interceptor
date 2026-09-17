@@ -3,7 +3,8 @@
 The per-step ``saturated`` column feeds the command-saturation KPI. It must be the
 combined actuator-chain flag: True if the limiter clamped the acceleration request OR the
 motor mixer clamped a rotor to an RPM limit. Counting only the limiter would hide mixer
-saturation on aggressive attitude slews (AGENTS.md → saturation must stay measurable).
+saturation on aggressive attitude slews (ENGINEERING_STANDARDS.md → saturation must
+stay measurable).
 """
 
 from __future__ import annotations

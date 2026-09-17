@@ -4,7 +4,7 @@ Watch a *logged* interception in a live MuJoCo window. This is the project's onl
 sanctioned interactive window and it is **opt-in and replay-only**: it consumes an
 already-written ``results/<run_id>/run_log.csv`` and drives the model bodies to the
 logged poses. It never re-runs the sim, never re-steps physics, and never reads ground
-truth live, so it cannot affect any result (AGENTS.md → headless rule carve-out).
+truth live, so it cannot affect any result (ENGINEERING_STANDARDS.md → headless rule carve-out).
 
 Because playback is a pure consumer of a deterministic artifact, replaying the same log
 twice looks identical. Real-time pacing here affects only the playback clock.

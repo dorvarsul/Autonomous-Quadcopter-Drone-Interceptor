@@ -265,7 +265,7 @@ class StubOrchestrator:
         """Execute the loop headlessly and return a :class:`RunResult`.
 
         Enforces the headless guarantee up front: a non-headless renderer is a defect in
-        an automated run and fails loud (AGENTS.md → no hanging GLFW window).
+        an automated run and fails loud (ENGINEERING_STANDARDS.md → no hanging GLFW window).
 
         ``num_steps`` is the *maximum* duration. When ``terminate_on_intercept`` is set,
         the run stops at closest approach — once the true interceptor↔target range has
@@ -429,8 +429,8 @@ class StubOrchestrator:
             # Command-saturation KPI flag: the actuator chain saturated this step if EITHER
             # the limiter clamped the acceleration request OR the mixer clamped a rotor to an
             # RPM limit. Counting only the limiter would hide mixer saturation on aggressive
-            # attitude slews (AGENTS.md → saturation must stay measurable). Per-stage flags are
-            # logged alongside for attribution.
+            # attitude slews (ENGINEERING_STANDARDS.md → saturation must stay
+            # measurable). Per-stage flags are logged alongside for attribution.
             "saturated": limiter_saturated or mixer_saturated,
             "limiter_saturated": limiter_saturated,
             "mixer_saturated": mixer_saturated,

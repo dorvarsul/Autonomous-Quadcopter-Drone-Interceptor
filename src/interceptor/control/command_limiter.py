@@ -12,7 +12,8 @@ KPI, ≤ 5% of flight time). Two bounds are enforced:
   ``max_acceleration_m_s2`` to protect the rotors.
 
 Each clamp is reported (``saturated`` flag + magnitude removed) and logged, never applied
-silently (AGENTS.md → fail loud; saturation must stay measurable). No other layer clamps.
+silently (ENGINEERING_STANDARDS.md → fail loud; saturation must stay measurable). No
+other layer clamps.
 """
 
 from __future__ import annotations

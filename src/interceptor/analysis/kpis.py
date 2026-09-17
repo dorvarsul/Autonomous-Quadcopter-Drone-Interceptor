@@ -5,7 +5,7 @@ Design Review's success metrics. Nothing here re-implements guidance/control/est
 it only *measures* an already-recorded engagement. All acceptance thresholds are pulled
 from :mod:`interceptor.config.constants` (no inline KPI numbers — Clean Code / DRY).
 
-The KPIs (Design Review §7; AGENTS.md → Role 5 table):
+The KPIs (Design Review §7; ENGINEERING_STANDARDS.md → Role 5 table):
 
 - **Miss distance** ``R_miss`` — the minimum interceptor↔target range over the run [m].
 - **Time-to-intercept** — the first time the range falls to the miss threshold [s]; the
@@ -17,9 +17,9 @@ The KPIs (Design Review §7; AGENTS.md → Role 5 table):
   is the *honest actuator-chain* flag written by the orchestrator: a frame is saturated if
   the command limiter clamped the acceleration request **or** the motor mixer clamped a
   rotor to an RPM limit. Counting only the limiter would hide mixer saturation on aggressive
-  attitude slews (AGENTS.md → saturation must stay measurable, not hidden). Because the
-  scenario runner terminates the engagement at closest approach, this is measured over the
-  *real engagement*, not a post-intercept flyby.
+  attitude slews (ENGINEERING_STANDARDS.md → saturation must stay measurable, not
+  hidden). Because the scenario runner terminates the engagement at closest approach,
+  this is measured over the *real engagement*, not a post-intercept flyby.
 - **Max target speed handled** — the peak target speed over the run [km/h], from a finite
   difference of the logged target positions (characterization / stress metric).
 
@@ -96,7 +96,7 @@ def load_run_trace(csv_path: str | Path) -> RunTrace:
     """Load the KPI-relevant columns of a run log into a :class:`RunTrace`.
 
     Fails loud on an empty log — a run that produced no frames is a defect, not a
-    zero-KPI success (AGENTS.md → fail loud, not silent).
+    zero-KPI success (ENGINEERING_STANDARDS.md → fail loud, not silent).
     """
     times: list[float] = []
     interceptor: list[list[float]] = []

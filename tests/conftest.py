@@ -1,6 +1,6 @@
 """Shared pytest fixtures for the infrastructure test suite.
 
-All tests are headless and non-interactive (AGENTS.md). The MuJoCo-
+All tests are headless and non-interactive (ENGINEERING_STANDARDS.md). The MuJoCo-
 dependent fixture is marked so it can be deselected on machines without a GL context.
 """
 
