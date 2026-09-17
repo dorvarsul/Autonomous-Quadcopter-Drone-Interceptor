@@ -1,6 +1,6 @@
-"""Motor Mixer — body torque + thrust → four rotor RPMs (Role 4, Phase 2 — T2.7).
+"""Motor Mixer — body torque + thrust → four rotor RPMs (Role 4).
 
-The mixer is the exact algebraic **inverse** of the Phase 1 rotor model
+The mixer is the exact algebraic **inverse** of the rotor model
 (:class:`~interceptor.simulation.actuators.RotorActuatorModel`): given the desired body
 wrench it solves for the four per-rotor thrusts, then for RPM via ``thrust = kT·rpm²``.
 It reads the same shared constants as the forward model, so the two can never disagree

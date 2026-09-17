@@ -1,4 +1,4 @@
-"""Extended Kalman Filter for relative target tracking (Role 2, Phase 2 — T2.1).
+"""Extended Kalman Filter for relative target tracking (Role 2).
 
 The EKF is the Estimation stage: it consumes ONLY the raw, noisy, delayed
 :class:`RawSensorMeasurement` (range + LOS azimuth/elevation) and produces a clean,
@@ -31,7 +31,7 @@ wrapped to (-pi, pi].
 
 Latency compensation
 --------------------
-Each measurement is stamped with its generation time and age (Phase 1 sensor latency).
+Each measurement is stamped with its generation time and age (the sensor latency).
 The filter keeps its state synchronized to the measurement generation time and, for the
 value it publishes to Guidance, predicts that post-update state **forward by the
 latency** so Guidance sees an estimate valid at the current wall-clock instant, not a
@@ -174,7 +174,7 @@ class ExtendedKalmanFilter(Estimator):
         return f
 
     def _process_noise(self, dt: float) -> NDArray[np.float64]:
-        """Diagonal process-noise covariance scaled by ``dt`` (Phase 3 retunes shape)."""
+        """Diagonal process-noise covariance scaled by ``dt``."""
         p = self._p
         diag = np.array(
             [p.process_noise_position] * 3

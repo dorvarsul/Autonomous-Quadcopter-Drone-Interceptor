@@ -1,0 +1,17 @@
+# Evasive weaving target under a moderate breeze: the compound worst case — an evading
+# target AND a disturbed interceptor. Stresses EKF tracking, OGL lead, and control robustness
+# at once.
+name: wind_evasive_moderate
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 18.0
+wind_preset: moderate
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: sinusoidal
+  start_position_m: [10.0, -3.0, 5.0]
+  drift_velocity_m_s: [0.0, 1.5, 0.0]
+  amplitude_m: [0.0, 1.2, 0.4]
+  frequency_hz: 0.3

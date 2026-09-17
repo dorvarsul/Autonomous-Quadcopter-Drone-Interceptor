@@ -1,4 +1,4 @@
-"""Off-screen renderer headless behavior (Phase 1 — T1.7 / T1.9).
+"""Off-screen renderer headless behavior.
 
 Marked ``mujoco``: constructing the renderer needs an off-screen GL context. Asserts
 the renderer is headless, captures frames off-screen, and that disabling it is a no-op.

@@ -1,5 +1,5 @@
 <!--
-  Interceptor quadcopter (Role 1, Phase 1 - T1.1).
+  Interceptor quadcopter (Role 1).
 
   A model *fragment*: it defines only the interceptor body so it can be <include>d into
   scene.xml (which owns <option>/<compiler>/floor/light). It still loads standalone for

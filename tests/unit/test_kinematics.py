@@ -1,4 +1,4 @@
-"""Ground-truth relative-kinematics correctness (Phase 1 — T1.4 / T1.9).
+"""Ground-truth relative-kinematics correctness.
 
 Validates LOS angle/rate and closing-speed against hand-computed geometries, and that
 the sign/axis conventions match :mod:`interceptor.common.frames`.

@@ -1,4 +1,4 @@
-"""Noisy, delayed sensor model (Role 1, Phase 1 — T1.5).
+"""Noisy, delayed sensor model (Role 1).
 
 Turns the true interceptor->target geometry into a corrupted
 :class:`RawSensorMeasurement` carrying the imperfections the EKF is built to fight:

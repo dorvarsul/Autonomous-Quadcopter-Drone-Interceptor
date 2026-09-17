@@ -1,7 +1,7 @@
-"""Pass-through Guidance stub for the Phase 0 skeleton.
+"""Pass-through Guidance stub for the skeleton loop.
 
 NOT a guidance law. Requests zero acceleration regardless of the estimate, so the loop
-is fully deterministic and quiescent. Phase 2 implements PN/APN/OGL behind the same
+is fully deterministic and quiescent. OGL provides the real behavior behind the same
 :class:`GuidanceLaw` interface.
 """
 

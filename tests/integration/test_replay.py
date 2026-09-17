@@ -1,4 +1,4 @@
-"""Replay-session headless smoke test (Phase 1 — T1.10).
+"""Replay-session headless smoke test.
 
 Exercises the replay *core* without ever opening a window: build a tiny canned pose
 log, construct a ReplaySession, and apply a frame. The interactive ``play()`` window is

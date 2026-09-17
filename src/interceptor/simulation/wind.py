@@ -1,4 +1,4 @@
-"""Wind & gust disturbance model (Role 1, Phase 1 — T1.6).
+"""Wind & gust disturbance model (Role 1).
 
 Models the air velocity the airframe sees as a **steady wind vector plus a seeded
 stochastic gust**. Gusts are a first-order Gauss-Markov (Ornstein-Uhlenbeck) process,
@@ -8,7 +8,7 @@ physically closer to real gusts and numerically gentle on the controller.
 Determinism (AGENTS.md): the whole gust time-series is **precomputed once** at
 construction from a single seeded RNG stream, then sampled by time. This makes
 ``velocity_at(t)`` a pure function of ``t`` — the same seed yields a byte-identical
-disturbance series (T1.6 DoD), and both the plant-force path and the wind-affected
+disturbance series, and both the plant-force path and the wind-affected
 trajectory can sample it without sharing mutable state.
 
 The **calm** preset (zero steady wind, zero gust std) reduces to exactly zero air
@@ -140,7 +140,7 @@ def moderate() -> WindParams:
 
 
 def gusty() -> WindParams:
-    """Gusty preset: stronger steady wind with sharp, frequent gusts (Phase 4 stress)."""
+    """Gusty preset: stronger steady wind with sharp, frequent gusts (stress profile)."""
     return WindParams(
         steady_velocity_m_s=(6.0, 2.0, 0.0),
         gust_std_m_s=3.0,
@@ -149,4 +149,4 @@ def gusty() -> WindParams:
 
 
 WIND_PRESETS = {"calm": calm, "moderate": moderate, "gusty": gusty}
-"""Named presets referenced by scenario configs (used heavily in Phase 4)."""
+"""Named presets referenced by scenario configs (used by the stress scenarios)."""

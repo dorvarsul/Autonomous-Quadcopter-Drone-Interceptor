@@ -2,8 +2,8 @@
 
 These are the narrow contracts the rest of the pipeline depends on (Dependency
 Inversion): orchestration talks to ``SensorModel`` / ``TargetTrajectory`` / ``Renderer``
-/ ``Plant`` abstractions, never concrete physics classes. Phase 2+ swaps real MuJoCo
-implementations in behind these without touching downstream code.
+/ ``Plant`` abstractions, never concrete physics classes. Real MuJoCo implementations
+swap in behind these without touching downstream code.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ class SensorModel(ABC):
 
     Owned by Role 1. This is the *only* thing Estimation is allowed to consume. Noise
     and latency are intentional and configurable; a stub may produce a clean reading,
-    but the interface is the same one Phase 1 fills with real noise/latency profiles.
+    but the interface is the same one the real model fills with noise/latency profiles.
     """
 
     @abstractmethod
@@ -48,7 +48,7 @@ class SensorModel(ABC):
 
 
 class Renderer(ABC):
-    """Visualization sink. Phase 0 requires a headless (off-screen) implementation.
+    """Visualization sink. Automated runs require a headless (off-screen) implementation.
 
     Owned by Role 1. The pipeline must run with a renderer that opens **no GLFW
     window** so automated/headless runs never hang (AGENTS.md → Execution Note).
@@ -67,8 +67,8 @@ class Renderer(ABC):
 class Plant(ABC):
     """The interceptor dynamics sink: consumes motor commands, advances state.
 
-    Owned by Role 1. Closes the loop (Motor Mixer -> Simulation). Phase 0 uses a trivial
-    stub; Phase 1 replaces it with the MuJoCo-stepped quad. ``body_rates_rad_s`` is the
+    Owned by Role 1. Closes the loop (Motor Mixer -> Simulation). A trivial stub backs
+    the skeleton loop; the MuJoCo-stepped quad is the real plant. ``body_rates_rad_s`` is the
     real-time gyro feedback the inner control loop tracks against.
     """
 

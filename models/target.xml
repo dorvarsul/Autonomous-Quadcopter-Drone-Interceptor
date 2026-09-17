@@ -1,5 +1,5 @@
 <!--
-  Target UAV (Role 1, Phase 1 - T1.3).
+  Target UAV (Role 1).
 
   A model *fragment* included by scene.xml. The target is a **mocap body**: its motion
   is prescribed kinematically each step from a TargetTrajectory (it is a threat to

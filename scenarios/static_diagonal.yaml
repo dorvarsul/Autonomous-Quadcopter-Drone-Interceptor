@@ -1,0 +1,11 @@
+# Static target on a 3D diagonal (the saturation reference geometry, seed 0).
+name: static_diagonal
+seed: 0
+target_class: static
+guidance_law: OGL
+time_limit_s: 12.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: static
+  position_m: [8.0, 3.0, 6.0]

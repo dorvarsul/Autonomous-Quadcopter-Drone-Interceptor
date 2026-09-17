@@ -4,9 +4,9 @@ Every value here carries explicit units in its name and a ``Why`` note tying it 
 the Design Review / AGENTS.md. No downstream module may hard-code any of these
 numbers (Clean Code → "No magic numbers"; DRY → one source of truth).
 
-Phase 0 note: airframe/motor figures are *documented placeholders* refined by the
-Simulation Engineer (Role 1) in Phase 1. They exist now so contracts and stubs have
-typed, named values to reference — not to be trusted as final physics.
+Note: airframe/motor figures are *documented placeholders* refined by the
+Simulation Engineer (Role 1). They exist so contracts and stubs have typed, named
+values to reference — not to be trusted as final physics.
 
 Coordinate frame reminder (see ``common.frames``): world frame is **Z-up**; the
 altitude axis is Z. The Z axis gets first-class attention throughout because the
@@ -29,12 +29,12 @@ wind/gust disturbance model (Role 1)."""
 
 WIND_DRAG_COEFF_N_PER_M_S: float = 0.05
 """Linear aerodynamic coupling between air-relative velocity and force [N per m/s].
-PLACEHOLDER (Role 1, Phase 1). Why: the wind disturbance pushes the airframe with a
+PLACEHOLDER (Role 1). Why: the wind disturbance pushes the airframe with a
 force F = k * (v_wind - v_body); a single lumped coefficient keeps the model explicit
 and reproducible without a full aerodynamic surface model."""
 
 # --------------------------------------------------------------------------------
-# Airframe (PLACEHOLDERS — refined in Phase 1 by Role 1)
+# Airframe (PLACEHOLDERS — refined by Role 1)
 # --------------------------------------------------------------------------------
 
 QUAD_MASS_KG: float = 1.0
@@ -91,7 +91,7 @@ acceleration commands into target roll/pitch tilt."""
 
 ESTIMATION_HZ: int = 100
 """Estimator (EKF) update rate [Hz], tied to the sensor sample rate. PLACEHOLDER —
-finalized with the sensor model in Phase 1. Why: the EKF runs at sensor cadence, not
+finalized with the sensor model. Why: the EKF runs at sensor cadence, not
 the control cadence."""
 
 GUIDANCE_HZ: int = 50
@@ -122,7 +122,7 @@ NAV_RATIO_MAX: float = 5.0
 PLACEHOLDER. Why: keep N' physically reasonable when driven by time-to-go (Role 3)."""
 
 # --------------------------------------------------------------------------------
-# KPI thresholds  (acceptance bar for Phases 3-4; 5% margin baked into targets)
+# KPI thresholds  (acceptance bar; 5% margin baked into targets)
 # --------------------------------------------------------------------------------
 
 R_MISS_MAX_M: float = 1.05

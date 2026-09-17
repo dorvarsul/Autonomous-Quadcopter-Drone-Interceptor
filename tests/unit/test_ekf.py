@@ -1,4 +1,4 @@
-"""Unit tests for the Extended Kalman Filter (Role 2, T2.1).
+"""Unit tests for the Extended Kalman Filter (Role 2).
 
 Covers convergence + bounded error on synthetic noisy tracks, latency compensation,
 clean LOS-rate output, quality reporting, and fail-loud divergence. The EKF is exercised
@@ -115,7 +115,7 @@ def test_ekf_fails_loud_on_divergence():
         ekf.update(_measure(np.array([5.0, 0.0, 2.0]), 0.0), 0.01)
 
 
-def test_ekf_exposes_acceleration_field_for_phase4():
+def test_ekf_exposes_acceleration_field_for_maneuvering():
     """The estimate carries a (finite) relative-acceleration field for later use."""
     ekf = ExtendedKalmanFilter(EkfParams())
     est = ekf.update(_measure(np.array([5.0, 1.0, 2.0]), 0.0), 0.01)

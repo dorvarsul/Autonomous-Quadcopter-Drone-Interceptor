@@ -1,0 +1,11 @@
+# Longer-range static target — checks time-to-intercept stays well under the 10 s KPI.
+name: static_far
+seed: 0
+target_class: static
+guidance_law: OGL
+time_limit_s: 12.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: static
+  position_m: [11.0, 4.0, 6.0]

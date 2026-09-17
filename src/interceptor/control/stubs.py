@@ -1,8 +1,8 @@
-"""Pass-through Flight Control & Actuation stubs for the Phase 0 skeleton.
+"""Pass-through Flight Control & Actuation stubs for the skeleton loop.
 
 NO real limiting, NO PID, NO physical mixing matrix. Each stub passes its input through
-in the simplest contract-satisfying way so the loop closes deterministically. Phase 2
-replaces them with the real command limiter, dual-loop PID, and motor mixer.
+in the simplest contract-satisfying way so the loop closes deterministically. The real
+command limiter, dual-loop PID, and motor mixer replace them in the wired pipeline.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ class PassThroughLimiter(CommandLimiter):
     """Reports no saturation and passes the acceleration through unchanged.
 
     Placeholder ONLY. The real limiter clamps to safe bounds and measures saturation;
-    a stub that never saturates is acceptable for Phase 0 because guidance is the
-    zero-stub, so nothing ever needs clamping.
+    a stub that never saturates is acceptable in the skeleton loop because guidance is
+    the zero-stub, so nothing ever needs clamping.
     """
 
     def limit(self, command: AccelerationCommand) -> LimitedAccelerationCommand:

@@ -1,11 +1,11 @@
-"""Off-screen rendering (Role 1, Phase 1 — T1.7).
+"""Off-screen rendering (Role 1).
 
 A :class:`Renderer` that captures frames **off-screen** via ``mujoco.Renderer`` and
 opens **no interactive GLFW window** — automated/headless runs must never hang
 (AGENTS.md → Execution Note). Frames can be saved as debug PNGs (and stitched into a
 video offline). Rendering is purely an observer: it reads model/data and writes image
 files; it never steps physics, so enabling or disabling it cannot change a run's
-results (T1.7 DoD).
+results.
 
 Determinism: capture is gated to every Nth sim step so frame count is a deterministic
 function of step count. Disabling rendering (``enabled=False``) is a pure no-op on the

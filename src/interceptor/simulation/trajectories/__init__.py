@@ -1,4 +1,4 @@
-"""Target-trajectory generators (Role 1, Phase 1 — T1.3).
+"""Target-trajectory generators (Role 1).
 
 Five families behind the :class:`~interceptor.simulation.interfaces.TargetTrajectory`
 contract: static, linear, sinusoidal (evasive), varying-speed, and wind-affected. Each

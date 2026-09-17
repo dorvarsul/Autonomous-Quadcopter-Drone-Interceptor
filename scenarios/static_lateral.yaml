@@ -1,0 +1,11 @@
+# Static target off to the side and slightly below — non-trivial bearing + slight descent.
+name: static_lateral
+seed: 0
+target_class: static
+guidance_law: OGL
+time_limit_s: 12.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: static
+  position_m: [5.0, -4.0, 2.0]

@@ -1,1 +1,1 @@
-"""Role 5 — Test/KPI: scenarios, KPI measurement, reporting (Phase 3+)."""
+"""Role 5 — Test/KPI: scenarios, KPI measurement, reporting."""

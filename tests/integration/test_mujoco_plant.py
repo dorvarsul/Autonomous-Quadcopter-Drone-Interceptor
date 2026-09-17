@@ -1,4 +1,4 @@
-"""MuJoCo plant: hover, stability, saturation, wind (Phase 1 — T1.1/T1.2/T1.6/T1.8).
+"""MuJoCo plant: hover, stability, saturation, wind.
 
 Marked ``mujoco`` because it loads and steps the real engine. Headless and
 deterministic: no window is opened and no rendering occurs here.

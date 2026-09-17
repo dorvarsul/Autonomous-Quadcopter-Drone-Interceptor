@@ -1,7 +1,7 @@
 """Headless MuJoCo guarantee test: load, step, and render off-screen — no GLFW window.
 
 Marked ``mujoco`` so it can be deselected (``-m "not mujoco"``) on machines without an
-off-screen GL context. When it runs, it proves the Phase 0 smoke-test requirement.
+off-screen GL context. When it runs, it proves the headless smoke-test requirement.
 """
 
 from __future__ import annotations

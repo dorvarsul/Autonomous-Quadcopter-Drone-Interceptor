@@ -1,8 +1,8 @@
-"""Pass-through Simulation stubs for the Phase 0 end-to-end skeleton.
+"""Pass-through Simulation stubs for the end-to-end skeleton.
 
 NO physics, NO noise model — these exist only so the orchestrator can run the full
-6-stage loop deterministically before Role 1 implements real MuJoCo dynamics in
-Phase 1. They are intentionally trivial and clearly labelled as placeholders.
+6-stage loop deterministically without the real MuJoCo dynamics. They are intentionally
+trivial and clearly labelled as placeholders.
 """
 
 from __future__ import annotations
@@ -31,10 +31,10 @@ class StaticTargetTrajectory(TargetTrajectory):
 
 
 class IdealSensorModel(SensorModel):
-    """Noise-free, zero-latency sensor. PLACEHOLDER for the Phase 1 noisy/delayed model.
+    """Noise-free, zero-latency sensor. PLACEHOLDER for the noisy/delayed model.
 
-    Computes exact range and LOS angles from the true geometry. Phase 0 only — the real
-    model must add the configurable noise/latency the EKF is designed to fight.
+    Computes exact range and LOS angles from the true geometry. Skeleton-loop only — the
+    real model must add the configurable noise/latency the EKF is designed to fight.
     """
 
     def measure(
@@ -81,8 +81,8 @@ class StationaryPlant(Plant):
     """Trivial plant: records the last motor command, never moves. PLACEHOLDER.
 
     Holds the interceptor fixed and reports zero body rates, so the closed loop runs
-    deterministically without any real dynamics. Phase 1 replaces this with the
-    MuJoCo-stepped quadcopter.
+    deterministically without any real dynamics. The MuJoCo-stepped quadcopter is the
+    real plant that replaces this.
     """
 
     def __init__(self, position_m: NDArray[np.float64] | None = None) -> None:
@@ -95,7 +95,7 @@ class StationaryPlant(Plant):
         self.last_motor_command: MotorCommand | None = None
 
     def step(self, motor_command: MotorCommand, dt_s: float) -> None:
-        self.last_motor_command = motor_command  # absorbed; no integration in Phase 0
+        self.last_motor_command = motor_command  # absorbed; the stub does no integration
 
     @property
     def position_m(self) -> NDArray[np.float64]:

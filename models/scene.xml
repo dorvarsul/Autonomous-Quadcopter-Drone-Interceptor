@@ -1,11 +1,11 @@
 <!--
-  Engagement scene (Role 1, Phase 1 - T1.1 / T1.8).
+  Engagement scene (Role 1).
 
   Top-level world used by the MuJoCo plant and the replay viewer. Owns the solver
   options, lighting, and ground plane, and <include>s the interceptor and target
   fragments so there is a single source of truth for each body's geometry.
 
-  Solver choices (T1.8):
+  Solver choices:
     timestep   = 1/SIM_HZ = 1/400 = 0.0025 s  (kept in lockstep with constants.SIM_HZ;
                  the plant asserts this on load so the two can never silently drift).
     integrator = RK4                          (good energy conservation for the smooth

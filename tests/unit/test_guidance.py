@@ -1,4 +1,4 @@
-"""Unit tests for the guidance layer (Role 3): time-to-go, ZEM, and OGL (T2.2, T2.3)."""
+"""Unit tests for the guidance layer (Role 3): time-to-go, ZEM, and OGL."""
 
 from __future__ import annotations
 

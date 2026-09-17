@@ -1,4 +1,4 @@
-"""Phase 2 integration: the wired pipeline intercepts a static target (T2.8/T2.9).
+"""Integration: the wired pipeline intercepts a static target.
 
 Marked ``mujoco`` because it drives the real physics through the full 6-stage loop
 (Simulation -> EKF -> OGL -> Limiter -> outer -> inner -> mixer -> Simulation). Headless
@@ -21,7 +21,7 @@ from interceptor.pipeline.orchestrator import PipelineComponents, StubOrchestrat
 
 pytestmark = pytest.mark.mujoco
 
-# Silence the intentional saturation warnings the terminal phase emits (Phase 3 tunes it).
+# Silence the intentional saturation warnings the terminal phase emits.
 logging.getLogger("interceptor.control").setLevel(logging.ERROR)
 
 
@@ -29,7 +29,7 @@ def _run(target, run_dir: Path, *, seconds: float = 9.0, seed: int = 0,
          start=(0.0, 0.0, 2.0), terminate_on_intercept: bool = False):
     rng = RngFactory(seed)
     params = default_params()
-    components = PipelineComponents.phase2_intercept(
+    components = PipelineComponents.intercept(
         rng, params,
         interceptor_position_m=np.array(start, dtype=float),
         target_position_m=np.array(target, dtype=float),
@@ -106,7 +106,7 @@ def test_active_guidance_law_is_ogl(run_dir: Path):
     """The wired pipeline reports OGL as its guidance law in the run snapshot metadata."""
     rng = RngFactory(0)
     params = default_params()
-    components = PipelineComponents.phase2_intercept(
+    components = PipelineComponents.intercept(
         rng, params,
         interceptor_position_m=np.array([0.0, 0.0, 2.0]),
         target_position_m=np.array([6.0, 0.0, 4.0]),

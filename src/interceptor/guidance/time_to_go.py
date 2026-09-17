@@ -1,4 +1,4 @@
-"""Time-to-go estimation for the guidance layer (Role 3, Phase 2 — T2.2).
+"""Time-to-go estimation for the guidance layer (Role 3).
 
 ``time_to_go`` (``t_go``) is the estimated time remaining until intercept. It drives the
 lag-aware navigation ratio and scales the Zero-Effort-Miss, so its conditioning matters:

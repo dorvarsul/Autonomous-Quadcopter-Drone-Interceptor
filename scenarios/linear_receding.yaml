@@ -1,0 +1,12 @@
+# Target moving slowly away along +X — a tail chase; closing speed is the interceptor's.
+name: linear_receding
+seed: 0
+target_class: moving
+guidance_law: OGL
+time_limit_s: 22.0
+interceptor:
+  start_m: [0.0, 0.0, 2.0]
+target:
+  type: linear
+  start_position_m: [8.0, 0.0, 5.0]
+  velocity_m_s: [1.5, 0.0, 0.0]

@@ -1,4 +1,4 @@
-"""Ground-truth relative kinematics (Role 1, Phase 1 — T1.4).
+"""Ground-truth relative kinematics (Role 1).
 
 Computes the *true* engagement geometry between interceptor and target each step:
 relative position/velocity, range, Line-of-Sight (LOS) angles and **LOS rate**, and

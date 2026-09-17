@@ -1,4 +1,4 @@
-"""Flight Control inner loop, ~400 Hz attitude PID (Role 4, Phase 2 — T2.6).
+"""Flight Control inner loop, ~400 Hz attitude PID (Role 4).
 
 The fast loop that makes the tilt delay *real*: it drives the actual attitude toward the
 outer loop's :class:`AttitudeReference` using gyroscope feedback, emitting the body
@@ -15,7 +15,7 @@ kinematics, seeded level to match the airframe's initial state), then runs a PD 
 
 Proportional term pulls attitude toward the reference; the rate term damps using the gyro.
 The resulting first-order-lag-like tilt response is what OGL's lag model anticipates — we
-do not shortcut it. Gains live in ``config/params.py`` (retuned in Phase 3).
+do not shortcut it. Gains live in ``config/params.py``.
 """
 
 from __future__ import annotations
