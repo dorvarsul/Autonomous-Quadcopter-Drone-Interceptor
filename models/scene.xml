@@ -1,0 +1,33 @@
+<!--
+  Engagement scene (Role 1, Phase 1 - T1.1 / T1.8).
+
+  Top-level world used by the MuJoCo plant and the replay viewer. Owns the solver
+  options, lighting, and ground plane, and <include>s the interceptor and target
+  fragments so there is a single source of truth for each body's geometry.
+
+  Solver choices (T1.8):
+    timestep   = 1/SIM_HZ = 1/400 = 0.0025 s  (kept in lockstep with constants.SIM_HZ;
+                 the plant asserts this on load so the two can never silently drift).
+    integrator = RK4                          (good energy conservation for the smooth
+                 rotor-force dynamics here; verified by the stability test).
+    density/viscosity = 0                     (MuJoCo's built-in aerodynamics are off;
+                 wind is modelled explicitly and reproducibly in simulation/wind.py).
+-->
+<mujoco model="scene">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.0025" integrator="RK4" density="0" viscosity="0"/>
+
+  <visual>
+    <global offwidth="640" offheight="480"/>
+    <headlight diffuse="0.55 0.55 0.55" ambient="0.3 0.3 0.3"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <worldbody>
+    <light name="top" pos="0 0 12" dir="0 0 -1" directional="true"/>
+    <geom name="floor" type="plane" size="60 60 0.1" rgba="0.27 0.29 0.33 1"/>
+  </worldbody>
+
+  <include file="quadcopter.xml"/>
+  <include file="target.xml"/>
+</mujoco>

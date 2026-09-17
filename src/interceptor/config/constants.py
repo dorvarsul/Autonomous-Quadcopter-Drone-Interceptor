@@ -27,6 +27,12 @@ AIR_DENSITY_KG_M3: float = 1.225
 """Air density at sea level, 15 degC [kg/m^3]. Why: scales rotor thrust/drag and the
 wind/gust disturbance model (Role 1)."""
 
+WIND_DRAG_COEFF_N_PER_M_S: float = 0.05
+"""Linear aerodynamic coupling between air-relative velocity and force [N per m/s].
+PLACEHOLDER (Role 1, Phase 1). Why: the wind disturbance pushes the airframe with a
+force F = k * (v_wind - v_body); a single lumped coefficient keeps the model explicit
+and reproducible without a full aerodynamic surface model."""
+
 # --------------------------------------------------------------------------------
 # Airframe (PLACEHOLDERS — refined in Phase 1 by Role 1)
 # --------------------------------------------------------------------------------

@@ -80,6 +80,50 @@ class LimiterParams:
 
 
 @dataclass(frozen=True)
+class SensorParams:
+    """Sensor noise/latency profile (Role 1, Phase 1).
+
+    These are *intentional* corruptions of the ground-truth geometry — the EKF exists
+    to fight exactly this noise and delay (AGENTS.md → Role 1 must not sanitize signals
+    for downstream convenience). A sensor model must be handed an explicit profile; the
+    defaults below are a deliberate, documented baseline, not "no noise".
+    """
+
+    # Per-channel zero-mean Gaussian noise standard deviations.
+    range_noise_std_m: float = 0.30  # range channel 1-sigma [m]
+    azimuth_noise_std_rad: float = 0.0035  # ~0.2 deg LOS azimuth 1-sigma [rad]
+    elevation_noise_std_rad: float = 0.0035  # ~0.2 deg LOS elevation 1-sigma [rad]
+    # Constant per-channel biases (systematic offset the EKF cannot average away).
+    range_bias_m: float = 0.0
+    azimuth_bias_rad: float = 0.0
+    elevation_bias_rad: float = 0.0
+    # Quantization step per channel (0.0 disables quantization on that channel).
+    range_quantization_m: float = 0.0
+    angle_quantization_rad: float = 0.0
+    # Finite sensor sample rate [Hz]; the sensor is slower than the sim.
+    update_rate_hz: float = float(constants.ESTIMATION_HZ)
+    # Measurement transport delay [s]; each sample is stamped with its age.
+    latency_s: float = 0.02
+
+
+@dataclass(frozen=True)
+class WindParams:
+    """Wind/gust disturbance profile (Role 1, Phase 1).
+
+    Steady wind plus a seeded first-order Gauss-Markov (Ornstein-Uhlenbeck) gust
+    process. The zero default is the *calm* preset and must reduce to undisturbed
+    dynamics exactly (T1.6 DoD).
+    """
+
+    # Constant mean wind velocity in the world frame [m/s].
+    steady_velocity_m_s: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    # Gust 1-sigma magnitude per axis [m/s]; 0.0 => no gusts.
+    gust_std_m_s: float = 0.0
+    # Gust correlation (decorrelation) time [s]; larger => smoother, slower gusts.
+    gust_correlation_time_s: float = 1.0
+
+
+@dataclass(frozen=True)
 class Params:
     """Top-level tunable-parameter bundle, snapshotted with every run."""
 
@@ -87,6 +131,8 @@ class Params:
     control: ControlParams = field(default_factory=ControlParams)
     guidance: GuidanceParams = field(default_factory=GuidanceParams)
     limiter: LimiterParams = field(default_factory=LimiterParams)
+    sensor: SensorParams = field(default_factory=SensorParams)
+    wind: WindParams = field(default_factory=WindParams)
 
     def to_dict(self) -> dict[str, Any]:
         """Plain-dict view for the reproducibility config snapshot."""
