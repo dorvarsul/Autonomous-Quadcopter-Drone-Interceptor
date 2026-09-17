@@ -1,0 +1,48 @@
+# Dependency manifest & build config for the Autonomous Drone Interceptor.
+# Versions are pinned for reproducibility (determinism is the project's north star).
+# Any dependency beyond this list requires user confirmation (AGENTS.md -> Workflow).
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interceptor"
+version = "0.0.0"
+description = "Autonomous quadcopter drone interceptor — Classical Hierarchical Architecture (MuJoCo)."
+requires-python = ">=3.11"
+dependencies = [
+    "mujoco==3.10.0",     # physics engine + official Python bindings
+    "numpy==2.5.0",       # core linear algebra (EKF, OGL, PID, frames)
+    "scipy==1.18.0",      # optimization / linear algebra for EKF & LQ/OGL
+    "pyyaml==6.0.3",      # scenario + parameter config files
+    "matplotlib==3.11.0", # KPI plots / run reports
+]
+
+[project.optional-dependencies]
+# Test/dev tooling. `ruff` lint/format config lives below; adding it was confirmed as
+# part of the Phase 0 quality-gate task (T0.9).
+dev = [
+    "pytest==9.1.1",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Headless, non-interactive test runs only (no GLFW window). Tests live under tests/.
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]
+markers = [
+    "mujoco: test requires the MuJoCo binding and an off-screen GL context",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+# Conservative, well-established rule set; physics code favors clarity over cleverness.
+select = ["E", "F", "I", "B", "UP"]

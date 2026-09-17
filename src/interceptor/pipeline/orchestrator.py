@@ -1,0 +1,251 @@
+"""Stub orchestrator: runs the full 6-stage pipeline end-to-end, headless.
+
+Wires Simulation -> Estimation -> Guidance -> Command Limiter -> Outer -> Inner ->
+Motor Mixer -> Simulation using injected components (Dependency Inversion). Phase 0
+runs it with the pass-through stubs to prove the loop closes deterministically; later
+phases inject real implementations behind the *same* interfaces with no orchestrator
+change.
+
+Determinism: the only randomness enters through the injected RNG factory; with stub
+components there is none, so a given (seed, params, step count) yields a byte-identical
+run log. The orchestrator respects the multi-rate schedule and never lets a layer read
+across a contract boundary (guidance sees estimates, not sensors; control sees limited
+acceleration, not guidance internals).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+from interceptor.common import frames
+from interceptor.common.logging import RunLogger, write_run_snapshot
+from interceptor.common.rng import RngFactory
+from interceptor.common.types import (
+    AttitudeReference,
+    LimitedAccelerationCommand,
+    MotorCommand,
+    TargetStateEstimate,
+)
+from interceptor.config import constants
+from interceptor.config.params import Params, default_params
+from interceptor.control.interfaces import (
+    CommandLimiter,
+    InnerLoopController,
+    MotorMixer,
+    OuterLoopController,
+)
+from interceptor.control.stubs import (
+    PassThroughInnerLoop,
+    PassThroughLimiter,
+    PassThroughOuterLoop,
+    UniformMotorMixer,
+)
+from interceptor.estimation.interfaces import Estimator
+from interceptor.estimation.stubs import PassThroughEstimator
+from interceptor.guidance.interfaces import GuidanceLaw
+from interceptor.guidance.stubs import ZeroGuidance
+from interceptor.pipeline.scheduler import MultiRateScheduler
+from interceptor.simulation.interfaces import (
+    Plant,
+    Renderer,
+    SensorModel,
+    TargetTrajectory,
+)
+from interceptor.simulation.stubs import (
+    IdealSensorModel,
+    NullRenderer,
+    StaticTargetTrajectory,
+    StationaryPlant,
+)
+
+# Columns of the per-step run log. Fixed order => deterministic CSV.
+LOG_FIELDS = (
+    "step_index",
+    "sim_time_s",
+    "interceptor_x_m",
+    "interceptor_y_m",
+    "interceptor_z_m",
+    "estimate_range_m",
+    "accel_cmd_norm_m_s2",
+    "saturated",
+    "rotor_rpm_0",
+    "rotor_rpm_1",
+    "rotor_rpm_2",
+    "rotor_rpm_3",
+)
+
+
+@dataclass(frozen=True)
+class PipelineComponents:
+    """The injected, interface-typed components wired into the loop.
+
+    Defaulting to the Phase 0 stubs keeps the call site trivial while leaving every slot
+    swappable for a real implementation (Open/Closed, Dependency Inversion).
+    """
+
+    trajectory: TargetTrajectory
+    sensor: SensorModel
+    estimator: Estimator
+    guidance: GuidanceLaw
+    limiter: CommandLimiter
+    outer_loop: OuterLoopController
+    inner_loop: InnerLoopController
+    mixer: MotorMixer
+    plant: Plant
+    renderer: Renderer
+
+    @staticmethod
+    def default_stubs() -> PipelineComponents:
+        """All-stub wiring used by Phase 0 and by infra tests."""
+        return PipelineComponents(
+            trajectory=StaticTargetTrajectory(np.array([10.0, 0.0, 5.0])),
+            sensor=IdealSensorModel(),
+            estimator=PassThroughEstimator(),
+            guidance=ZeroGuidance(),
+            limiter=PassThroughLimiter(),
+            outer_loop=PassThroughOuterLoop(),
+            inner_loop=PassThroughInnerLoop(),
+            mixer=UniformMotorMixer(),
+            plant=StationaryPlant(np.zeros(3)),
+            renderer=NullRenderer(),
+        )
+
+
+@dataclass(frozen=True)
+class RunResult:
+    """Outcome of a pipeline run; everything needed to verify/replay it."""
+
+    num_steps: int
+    run_dir: Path
+    log_path: Path
+    snapshot_path: Path
+    final_motor_command: MotorCommand
+
+
+class StubOrchestrator:
+    """Runs the multi-rate pipeline for a fixed number of steps, logging each step."""
+
+    def __init__(
+        self,
+        components: PipelineComponents | None = None,
+        params: Params | None = None,
+        seed: int = 0,
+    ) -> None:
+        self._components = components or PipelineComponents.default_stubs()
+        self._params = params or default_params()
+        self._rng = RngFactory(seed)
+        self._scheduler = MultiRateScheduler(
+            sim_hz=constants.SIM_HZ,
+            inner_loop_hz=constants.INNER_LOOP_HZ,
+            outer_loop_hz=constants.OUTER_LOOP_HZ,
+            estimation_hz=constants.ESTIMATION_HZ,
+            guidance_hz=constants.GUIDANCE_HZ,
+        )
+
+    def run(self, num_steps: int, run_dir: Path, run_id: str = "phase0_stub") -> RunResult:
+        """Execute the loop headlessly and return a :class:`RunResult`.
+
+        Enforces the headless guarantee up front: a non-headless renderer is a defect in
+        an automated run and fails loud (AGENTS.md → no hanging GLFW window).
+        """
+        if not self._components.renderer.is_headless:
+            raise RuntimeError(
+                "Orchestrator requires a headless renderer for automated runs; "
+                "got a windowed renderer."
+            )
+
+        run_dir = Path(run_dir)
+        snapshot_path = write_run_snapshot(
+            run_dir,
+            seed=self._rng.seed,
+            params=self._params.to_dict(),
+            metadata={
+                "run_id": run_id,
+                "num_steps": num_steps,
+                "sim_hz": constants.SIM_HZ,
+                "inner_loop_hz": constants.INNER_LOOP_HZ,
+                "outer_loop_hz": constants.OUTER_LOOP_HZ,
+                "estimation_hz": constants.ESTIMATION_HZ,
+                "guidance_hz": constants.GUIDANCE_HZ,
+                "guidance_law": self._components.guidance.name,
+            },
+        )
+
+        dt = 1.0 / constants.SIM_HZ
+        c = self._components
+
+        # State carried across ticks (slower loops reuse their latest output).
+        estimate: TargetStateEstimate | None = None
+        limited: LimitedAccelerationCommand | None = None
+        desired_attitude: AttitudeReference | None = None
+        motor_command = MotorCommand(rotor_rpm=np.full(4, constants.MOTOR_RPM_MIN))
+
+        with RunLogger(run_dir, LOG_FIELDS) as logger:
+            for tick in self._scheduler.ticks(num_steps):
+                interceptor_pos = c.plant.position_m
+                target_pos = c.trajectory.position_at(tick.sim_time_s)
+
+                # --- Estimation (consumes ONLY the raw sensor measurement) -----------
+                if tick.run_estimation:
+                    measurement = c.sensor.measure(interceptor_pos, target_pos, tick.sim_time_s)
+                    estimate = c.estimator.update(measurement, dt)
+
+                # --- Guidance + Command Limiter (consume ONLY the estimate) ----------
+                if tick.run_guidance and estimate is not None:
+                    accel_cmd = c.guidance.compute(estimate)
+                    limited = c.limiter.limit(accel_cmd)
+
+                # --- Outer loop (consumes ONLY the limited acceleration) -------------
+                if tick.run_outer_loop and limited is not None:
+                    desired_attitude = c.outer_loop.compute_attitude(limited)
+
+                # --- Inner loop + Motor Mixer (fast loop, gyro feedback) -------------
+                if tick.run_inner_loop and desired_attitude is not None:
+                    commanded = c.inner_loop.track(desired_attitude, c.plant.body_rates_rad_s)
+                    motor_command = c.mixer.mix(commanded)
+
+                # --- Simulation step (actuators back into the world) -----------------
+                c.plant.step(motor_command, dt)
+                c.renderer.render(tick.sim_time_s)
+
+                logger.log_step(
+                    self._log_row(tick, interceptor_pos, estimate, limited, motor_command)
+                )
+
+        return RunResult(
+            num_steps=num_steps,
+            run_dir=run_dir,
+            log_path=run_dir / "run_log.csv",
+            snapshot_path=snapshot_path,
+            final_motor_command=motor_command,
+        )
+
+    @staticmethod
+    def _log_row(
+        tick,
+        interceptor_pos: np.ndarray,
+        estimate: TargetStateEstimate | None,
+        limited: LimitedAccelerationCommand | None,
+        motor_command: MotorCommand,
+    ) -> dict:
+        """Assemble one deterministic log row from the current loop state."""
+        accel_norm = (
+            float(np.linalg.norm(limited.acceleration_m_s2)) if limited is not None else 0.0
+        )
+        return {
+            "step_index": tick.step_index,
+            "sim_time_s": tick.sim_time_s,
+            "interceptor_x_m": float(interceptor_pos[frames.X]),
+            "interceptor_y_m": float(interceptor_pos[frames.Y]),
+            "interceptor_z_m": float(interceptor_pos[frames.Z]),
+            "estimate_range_m": float(estimate.range_m) if estimate is not None else 0.0,
+            "accel_cmd_norm_m_s2": accel_norm,
+            "saturated": bool(limited.saturated) if limited is not None else False,
+            "rotor_rpm_0": float(motor_command.rotor_rpm[0]),
+            "rotor_rpm_1": float(motor_command.rotor_rpm[1]),
+            "rotor_rpm_2": float(motor_command.rotor_rpm[2]),
+            "rotor_rpm_3": float(motor_command.rotor_rpm[3]),
+        }
